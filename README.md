@@ -1,0 +1,161 @@
+# temporal-registry
+
+Temporal-backed workflow registry, scheduler, and HTTP dispatch gateway.
+
+## The Problem
+
+Temporal gives you durable workflow execution, but clients still need to know a
+lot before they can safely start work:
+
+- Which workflow types exist.
+- Which task queue can run each workflow.
+- What input shape each workflow expects.
+- Which search attributes are supported.
+- Whether any worker that can run the workflow is currently alive.
+
+Without a registry, that information tends to get copied into clients,
+deployment config, docs, and worker code. Those copies drift. Clients start
+hard-coding task queues, old workflow names stay around, schedule creation
+depends on tribal knowledge, and independent worker deployments become tightly
+coupled to every caller.
+
+The operational failure mode is simple: the worker knows what it can run, but
+the client does not have a reliable, current way to discover that before it
+starts or schedules a workflow.
+
+## The Solution
+
+`temporal-registry` is a small always-on registry service for Temporal workflow
+workers. It serves two purposes:
+
+- It hosts an HTTP API for clients to discover, start, schedule, and administer
+  registered workflows.
+- It also runs as a Temporal worker for the registry workflow, which stores
+  workflow registrations, task queues, schemas, workers, and heartbeat state.
+
+Other workers register their runnable workflow types, task queues, input schemas,
+search attributes, labels, and heartbeat TTLs. The registry stores that metadata
+inside the durable registry workflow, then exposes it through the HTTP API.
+
+Clients use the registry instead of hard-coding worker details. A caller can:
+
+- List registered workflow types.
+- Validate workflow input against the registered schema.
+- Start a workflow on the currently registered task queue.
+- Create schedules without knowing the worker deployment layout.
+- Query supported search attributes for a workflow type.
+
+Worker heartbeats keep availability current. If a worker stops heartbeating, the
+registry can stop advertising that worker as a healthy dispatch target, while the
+registry state itself remains durable because it is backed by Temporal.
+
+This keeps ownership clean: workers own execution and capability registration;
+clients own requests; `temporal-registry` owns discovery, validation, dispatch,
+and scheduling. It does not execute workflow activities directly; registered
+Temporal workers host the actual workflow code.
+
+Use it when workers are deployed independently, workflow types change over time,
+or multiple runtimes need to advertise capabilities into one shared Temporal
+namespace.
+
+## How To Use It
+
+1. Start `temporal-registry` against your Temporal namespace.
+2. Have each worker register the workflow types it can run, including task queue,
+   input schema, labels, and supported search attributes.
+3. Keep workers heartbeating so the registry knows which dispatch targets are
+   currently healthy.
+4. Point clients at the registry API to list workflows, validate inputs, start
+   runs, or create schedules without hard-coding worker task queues.
+
+## Terms And Configuration
+
+`temporal-registry` sits between HTTP clients and Temporal. It hosts both the
+registry HTTP API and the registry worker. The HTTP API talks to Temporal over
+gRPC, while clients talk to `temporal-registry` over HTTP.
+
+```text
+client / curl / docs
+        |
+        | HTTP
+        v
+temporal-registry API
+        |
+        | Temporal gRPC
+        v
+Temporal frontend
+        |
+        v
+registry workflow state
+```
+
+Temporal terms:
+
+- `TEMPORAL_ADDRESS` is the Temporal frontend gRPC endpoint. Despite the word
+  "frontend", this is not the browser UI.
+- `TEMPORAL_NAMESPACE` is the Temporal namespace where the registry workflow and
+  dispatched workflows run.
+- `TEMPORAL_TLS` controls whether the registry connects to Temporal using TLS.
+- `TEMPORAL_API_KEY` authenticates the registry process to Temporal, if your
+  Temporal deployment requires API-key auth.
+- Temporal UI is the browser UI for humans to inspect workflow histories,
+  schedules, and runs. It is separate from this service.
+
+Registry terms:
+
+- `TEMPORAL_REGISTRY_URL` is the HTTP URL for the `temporal-registry` API, for
+  example `http://127.0.0.1:8080`.
+- `TEMPORAL_REGISTRY_TOKEN` is the bearer token for the registry HTTP API when
+  registry auth is enabled. It is not the Temporal API key.
+- The registry workflow is the durable Temporal workflow that stores registered
+  workflow types, task queues, schemas, workers, and heartbeat state.
+- The registry worker is the worker process started by `temporal-registry` to
+  execute the registry workflow itself.
+
+## Quick Start
+
+```bash
+uv sync --frozen
+uv run temporal-registry -f temporal_registry/config.yaml
+```
+
+The HTTP API publishes an OpenAPI spec at `/openapi.json` and interactive docs
+at `/docs`.
+
+Health and visibility endpoints:
+
+- `/health` returns `ok` when the HTTP API process is alive.
+- `/ready` checks that the API can query the registry workflow through Temporal.
+- `/registry/status` returns registry workflow counts and the latest
+  registry service startup/heartbeat markers.
+
+The registry records a startup signal and a low-frequency registry service heartbeat
+signal in the registry workflow history so the Temporal UI has an obvious sign
+that the registry service is active.
+
+Useful targets:
+
+```bash
+make test
+make lint
+make docker-build
+```
+
+## Contributing
+
+Set up the project with `uv sync --frozen`, then run `make check` before opening
+a change. Use `make fmt` to apply Ruff formatting and safe fixes.
+
+For local git hooks:
+
+```bash
+make hooks-install
+```
+
+The hooks run shared config sync, Ruff, mypy, and commit message linting. Commit
+messages should follow Conventional Commits because releases are managed by
+release-please.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

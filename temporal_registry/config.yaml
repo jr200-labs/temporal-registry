@@ -1,0 +1,37 @@
+temporal:
+  address: "${TEMPORAL_ADDRESS:-localhost:7233}"
+  namespace: "${TEMPORAL_NAMESPACE:-default}"
+  tls: "${TEMPORAL_TLS:-0}"
+  api_key: "${TEMPORAL_API_KEY:-}"
+
+server:
+  host: 127.0.0.1
+  port: 8080
+  # Hard cap on request body size, applied before any route handler runs.
+  max_request_body_bytes: 1048576   # 1 MiB
+
+auth:
+  # Default-enabled so a misconfigured ingress fails closed. Set
+  # `enabled: false` only when an authenticated proxy fronts the registry service.
+  enabled: "${TEMPORAL_REGISTRY_AUTH_ENABLED:-true}"
+  token: "${TEMPORAL_REGISTRY_TOKEN:-}"
+
+registry:
+  workflow_id: workflow-registry
+  workflow_type: temporal-registry.v1
+  task_queue: registry-service
+
+observability:
+  logging:
+    level: "${TEMPORAL_REGISTRY_LOG_LEVEL:-INFO}"
+    access: "${TEMPORAL_REGISTRY_ACCESS_LOG:-true}"
+  metrics:
+    enabled: "${TEMPORAL_REGISTRY_METRICS_ENABLED:-true}"
+    path: "${TEMPORAL_REGISTRY_METRICS_PATH:-/metrics}"
+  otel:
+    enabled: "${TEMPORAL_REGISTRY_OTEL_ENABLED:-false}"
+    service_name: "${TEMPORAL_REGISTRY_OTEL_SERVICE_NAME:-temporal-registry}"
+    endpoint: "${TEMPORAL_REGISTRY_OTEL_ENDPOINT:-}"
+    # Set false unless terminating TLS in-cluster; default refuses to send
+    # spans over plaintext.
+    insecure: "${TEMPORAL_REGISTRY_OTEL_INSECURE:-false}"

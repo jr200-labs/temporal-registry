@@ -1,0 +1,50 @@
+# Version control and editor state
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.swp
+*.swo
+
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Build and packaging outputs
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+
+# Local runtime state and logs
+.run/
+*.log
+*.pid
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Project files not needed by the runtime image
+tests/
+.pre-commit-config.yaml
+release-please-config.json
+.release-please-manifest.json
+scripts/

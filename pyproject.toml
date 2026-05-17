@@ -1,0 +1,88 @@
+[project]
+name = "temporal-registry"
+version = "0.1.0"
+description = "Temporal-backed workflow registry, scheduler, and HTTP dispatch gateway."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+authors = [
+    { name = "jr200-labs" },
+]
+keywords = ["temporal", "workflow", "registry", "scheduler", "gateway"]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
+]
+dependencies = [
+    "fastapi>=0.124.0",
+    "jsonschema>=4.23.0",
+    "prometheus-client>=0.21.0",
+    "pydantic>=2.13.0",
+    "pyyaml>=6.0.3",
+    "temporalio>=1.27.2",
+    "uvicorn>=0.47.0",
+]
+
+[project.optional-dependencies]
+otel = [
+    "opentelemetry-api>=1.39.1",
+    "opentelemetry-exporter-otlp>=1.39.1",
+    "opentelemetry-instrumentation-fastapi>=0.60b1",
+    "opentelemetry-sdk>=1.39.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jr200-labs/temporal-registry"
+Source = "https://github.com/jr200-labs/temporal-registry"
+Issues = "https://github.com/jr200-labs/temporal-registry/issues"
+
+[project.scripts]
+temporal-registry = "temporal_registry.runtime:main"
+
+[tool.setuptools.packages.find]
+include = ["temporal_registry*"]
+
+[tool.setuptools.package-data]
+"temporal_registry" = ["*.yaml"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=1.13",
+    "pytest>=8.0",
+    "ruff>=0.7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+extend = ".shared/ruff.toml"
+line-length = 110
+target-version = "py314"
+
+[tool.mypy]
+packages = ["temporal_registry"]
+warn_unused_configs = true
+exclude = ["tests"]
+
+[[tool.mypy.overrides]]
+module = [
+    "jsonschema.*",
+    "opentelemetry.*",
+    "prometheus_client.*",
+    "yaml.*",
+]
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools>=80", "wheel"]
+build-backend = "setuptools.build_meta"

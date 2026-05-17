@@ -1,0 +1,33 @@
+.bin
+
+*.egg-info
+
+# Mac OS X files
+.DS_Store
+
+# Other
+.history/
+
+private/
+build/
+dist/
+
+*.tgz
+.env.local
+.env.local.k8s
+.venv
+.pycache
+
+**/__pycache__
+
+*.log
+*.creds
+*.jwt
+
+.mypy_cache
+secrets/
+zz_*
+.shared/
+.pytest_cache/
+.run/
+.ruff_cache
