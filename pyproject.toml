@@ -66,8 +66,6 @@ pythonpath = ["."]
 
 [tool.ruff]
 extend = ".shared/ruff.toml"
-line-length = 110
-target-version = "py314"
 
 [tool.mypy]
 packages = ["temporal_registry"]

@@ -27,8 +27,9 @@ repos:
     rev: v0.15.0
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--config, .shared/ruff.toml, --fix]
       - id: ruff-format
+        args: [--config, .shared/ruff.toml]
 
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
     rev: v9.22.0
