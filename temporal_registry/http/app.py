@@ -48,7 +48,9 @@ def build_app(
     app.include_router(registry.workflow_router)
     app.include_router(schedules.router)
     if metrics_enabled:
-        app.add_api_route(metrics_path, metrics_endpoint, methods=["GET"], include_in_schema=False)
+        app.add_api_route(
+            metrics_path, metrics_endpoint, methods=["GET"], include_in_schema=False
+        )
     install_openapi_schema(app)
     if config is not None:
         app.state.registry_config = config

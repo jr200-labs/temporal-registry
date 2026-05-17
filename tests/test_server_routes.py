@@ -26,7 +26,12 @@ from temporal_registry.http.routers import schedules as routes_schedules
 def _config() -> RegistryServiceConfig:
     return RegistryServiceConfig.model_validate(
         {
-            "temporal": {"address": "127.0.0.1:7233", "namespace": "default", "tls": False, "api_key": ""},
+            "temporal": {
+                "address": "127.0.0.1:7233",
+                "namespace": "default",
+                "tls": False,
+                "api_key": "",
+            },
             "server": {"host": "127.0.0.1", "port": 8080},
             "registry": {
                 "workflow_id": "registry",
@@ -36,7 +41,12 @@ def _config() -> RegistryServiceConfig:
             "observability": {
                 "logging": {"level": "INFO", "access": False},
                 "metrics": {"enabled": True, "path": "/metrics"},
-                "otel": {"enabled": False, "service_name": "test", "endpoint": "", "insecure": True},
+                "otel": {
+                    "enabled": False,
+                    "service_name": "test",
+                    "endpoint": "",
+                    "insecure": True,
+                },
             },
         }
     )
@@ -279,7 +289,9 @@ def test_delete_registry_workflow_signals_unregister() -> None:
     routes_registry.unregister_workflow = fake_unregister
     try:
         response = asyncio.run(
-            routes_registry.delete_registry_workflow(_Request({}, {"workflow_type": "agent.run.v1"}))
+            routes_registry.delete_registry_workflow(
+                _Request({}, {"workflow_type": "agent.run.v1"})
+            )
         )
     finally:
         _Request.client = old_client
@@ -302,13 +314,17 @@ def test_post_registry_workflow_creates_when_absent() -> None:
         assert workflow_type == "example.workflow.v1"
         return None
 
-    async def fake_put(c, spec: RegistryWorkflowSpec, _config, *, overwrite: bool) -> None:
+    async def fake_put(
+        c, spec: RegistryWorkflowSpec, _config, *, overwrite: bool
+    ) -> None:
         calls.append((c, spec, overwrite))
 
     routes_registry.get_workflow = fake_get
     routes_registry.put_workflow = fake_put
     try:
-        response = asyncio.run(routes_registry.post_registry_workflow(_Request(_workflow_spec_payload())))
+        response = asyncio.run(
+            routes_registry.post_registry_workflow(_Request(_workflow_spec_payload()))
+        )
     finally:
         _Request.client = old_client
         routes_registry.get_workflow = old_get
@@ -337,7 +353,9 @@ def test_post_registry_workflow_rejects_existing() -> None:
     routes_registry.get_workflow = fake_get
     routes_registry.put_workflow = fake_put
     try:
-        response = asyncio.run(routes_registry.post_registry_workflow(_Request(_workflow_spec_payload())))
+        response = asyncio.run(
+            routes_registry.post_registry_workflow(_Request(_workflow_spec_payload()))
+        )
     finally:
         _Request.client = old_client
         routes_registry.get_workflow = old_get
@@ -354,7 +372,9 @@ def test_put_registry_workflow_replaces_full_spec() -> None:
     old_put = routes_registry.put_workflow
     calls: list[tuple[object, RegistryWorkflowSpec, bool]] = []
 
-    async def fake_put(c, spec: RegistryWorkflowSpec, _config, *, overwrite: bool) -> None:
+    async def fake_put(
+        c, spec: RegistryWorkflowSpec, _config, *, overwrite: bool
+    ) -> None:
         calls.append((c, spec, overwrite))
 
     routes_registry.put_workflow = fake_put
@@ -430,7 +450,9 @@ def test_get_registry_search_attributes_returns_aggregate_metadata() -> None:
 
     routes_registry.list_search_attributes = fake_list
     try:
-        response = asyncio.run(routes_registry.get_registry_search_attributes(_Request({})))
+        response = asyncio.run(
+            routes_registry.get_registry_search_attributes(_Request({}))
+        )
     finally:
         _Request.client = old_client
         routes_registry.list_search_attributes = old_list

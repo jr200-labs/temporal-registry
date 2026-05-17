@@ -107,8 +107,15 @@ def install_openapi_schema(app: FastAPI) -> None:
             routes=app.routes,
         )
         schemas = spec.setdefault("components", {}).setdefault("schemas", {})
-        for model in (RunRequest, RegistryWorkflowSpec, ScheduleStartRequest, WorkflowStartRequest):
-            schema = model.model_json_schema(ref_template="#/components/schemas/{model}")
+        for model in (
+            RunRequest,
+            RegistryWorkflowSpec,
+            ScheduleStartRequest,
+            WorkflowStartRequest,
+        ):
+            schema = model.model_json_schema(
+                ref_template="#/components/schemas/{model}"
+            )
             schemas.update(schema.pop("$defs", {}))
             schemas[model.__name__] = schema
         app.openapi_schema = spec

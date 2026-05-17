@@ -19,7 +19,9 @@ def _validate_agent_id(value: str, *, allow_empty: bool) -> str:
             return value
         raise ValueError("agent_id is required")
     if not AGENT_ID_PATTERN.fullmatch(value):
-        raise ValueError(f'invalid agent_id "{value}": must match {AGENT_ID_PATTERN.pattern}')
+        raise ValueError(
+            f'invalid agent_id "{value}": must match {AGENT_ID_PATTERN.pattern}'
+        )
     return value
 
 
@@ -35,7 +37,9 @@ class ChainStepRequest(BaseModel):
         return _validate_agent_id(value, allow_empty=True)
 
 
-_FORBIDDEN_WORKSPACE_ROOTS = frozenset({"/", "/root", "/home", "/etc", "/var", "/usr", "/bin", "/sbin"})
+_FORBIDDEN_WORKSPACE_ROOTS = frozenset(
+    {"/", "/root", "/home", "/etc", "/var", "/usr", "/bin", "/sbin"}
+)
 
 
 def _validate_workspace(value: str) -> str:
@@ -76,7 +80,9 @@ class RunRequest(BaseModel):
     @model_validator(mode="after")
     def _validate_chain_mode(self) -> RunRequest:
         if self.chain and not self.chain_mode:
-            raise ValueError('chain_mode is required when chain is set; use "override" or "append"')
+            raise ValueError(
+                'chain_mode is required when chain is set; use "override" or "append"'
+            )
         return self
 
 
@@ -92,7 +98,12 @@ class ScheduleStartRequest(BaseModel):
     start_at: datetime | None = None
     end_at: datetime | None = None
     overlap_policy: Literal[
-        "skip", "buffer_one", "buffer_all", "cancel_other", "terminate_other", "allow_all"
+        "skip",
+        "buffer_one",
+        "buffer_all",
+        "cancel_other",
+        "terminate_other",
+        "allow_all",
     ] = "skip"
     search_attributes: dict[str, str | list[str]] = Field(default_factory=dict)
     note: str = ""
@@ -110,7 +121,9 @@ class ScheduleStartRequest(BaseModel):
         if isinstance(data, dict) and "fire_offsets_seconds" in data:
             value = data["fire_offsets_seconds"]
             if isinstance(value, list) and not value:
-                raise ValueError("fire_offsets_seconds must be omitted or contain at least one offset")
+                raise ValueError(
+                    "fire_offsets_seconds must be omitted or contain at least one offset"
+                )
         return data
 
     @field_validator("start_at", "end_at")
@@ -124,9 +137,17 @@ class ScheduleStartRequest(BaseModel):
 
     @model_validator(mode="after")
     def _validate_datetime_mode(self) -> ScheduleStartRequest:
-        if self.fire_offsets_seconds and (self.start_at is not None or self.end_at is not None):
-            raise ValueError("start_at/end_at cannot be combined with fire_offsets_seconds")
-        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+        if self.fire_offsets_seconds and (
+            self.start_at is not None or self.end_at is not None
+        ):
+            raise ValueError(
+                "start_at/end_at cannot be combined with fire_offsets_seconds"
+            )
+        if (
+            self.start_at is not None
+            and self.end_at is not None
+            and self.end_at <= self.start_at
+        ):
             raise ValueError("end_at must be after start_at")
         return self
 

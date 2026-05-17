@@ -37,7 +37,8 @@ async def post_run(request: Request) -> Response:
         req = RunRequest.model_validate(body)
     except ValidationError as e:
         return JSONResponse(
-            {"error": "invalid request", "details": e.errors(include_context=False)}, status_code=400
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
         )
 
     client = temporal_client(request)
@@ -48,7 +49,11 @@ async def post_run(request: Request) -> Response:
 
     pairs = [tcommon.SearchAttributePair(SA_KEY_AGENT_ID, req.agent_id)]
     if req.agent_acp_provider:
-        pairs.append(tcommon.SearchAttributePair(SA_KEY_AGENT_ACP_PROVIDER, req.agent_acp_provider))
+        pairs.append(
+            tcommon.SearchAttributePair(
+                SA_KEY_AGENT_ACP_PROVIDER, req.agent_acp_provider
+            )
+        )
     sa = tcommon.TypedSearchAttributes(pairs)
 
     inp = req.model_dump(mode="json", exclude={"workflow_type"})
@@ -69,4 +74,6 @@ async def post_run(request: Request) -> Response:
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=500)
 
-    return JSONResponse({"workflow_id": handle.id, "run_id": handle.first_execution_run_id or ""})
+    return JSONResponse(
+        {"workflow_id": handle.id, "run_id": handle.first_execution_run_id or ""}
+    )

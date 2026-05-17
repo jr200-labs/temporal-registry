@@ -42,11 +42,19 @@ router = APIRouter(tags=["registry"])
 workflow_router = APIRouter(tags=["workflows"])
 
 
-@router.get("/registry/workflows", response_model=WorkflowListResponse, responses=error_responses(503))
+@router.get(
+    "/registry/workflows",
+    response_model=WorkflowListResponse,
+    responses=error_responses(503),
+)
 async def get_registry_workflows(request: Request) -> Response:
     try:
-        workflows = await list_workflows(temporal_client(request), registry_config(request))
-        return JSONResponse({"workflows": [item.model_dump(mode="json") for item in workflows]})
+        workflows = await list_workflows(
+            temporal_client(request), registry_config(request)
+        )
+        return JSONResponse(
+            {"workflows": [item.model_dump(mode="json") for item in workflows]}
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=503)
 
@@ -58,13 +66,19 @@ async def get_registry_workflows(request: Request) -> Response:
 )
 async def get_registry_search_attributes(request: Request) -> Response:
     try:
-        attrs = await list_search_attributes(temporal_client(request), registry_config(request))
+        attrs = await list_search_attributes(
+            temporal_client(request), registry_config(request)
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=503)
-    return JSONResponse({"search_attributes": [attr.model_dump(mode="json") for attr in attrs]})
+    return JSONResponse(
+        {"search_attributes": [attr.model_dump(mode="json") for attr in attrs]}
+    )
 
 
-@router.get("/registry/status", response_model=RegistryStatus, responses=error_responses(503))
+@router.get(
+    "/registry/status", response_model=RegistryStatus, responses=error_responses(503)
+)
 async def get_registry_status(request: Request) -> Response:
     try:
         status = await get_status(temporal_client(request), registry_config(request))
@@ -81,7 +95,9 @@ async def get_registry_status(request: Request) -> Response:
 async def get_registry_workflow(request: Request) -> Response:
     workflow_type = str(request.path_params.get("workflow_type") or "")
     try:
-        info = await get_workflow(temporal_client(request), workflow_type, registry_config(request))
+        info = await get_workflow(
+            temporal_client(request), workflow_type, registry_config(request)
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=503)
     if not info:
@@ -105,7 +121,8 @@ async def post_registry_workflow(request: Request) -> Response:
         spec = RegistryWorkflowSpec.model_validate(body)
     except ValidationError as e:
         return JSONResponse(
-            {"error": "invalid request", "details": e.errors(include_context=False)}, status_code=400
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
         )
 
     client = temporal_client(request)
@@ -141,24 +158,35 @@ async def put_registry_workflow(request: Request) -> Response:
         spec = RegistryWorkflowSpec.model_validate(body)
     except ValidationError as e:
         return JSONResponse(
-            {"error": "invalid request", "details": e.errors(include_context=False)}, status_code=400
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
         )
     if spec.workflow_type != workflow_type:
-        return JSONResponse({"error": "workflow_type in path and body must match"}, status_code=400)
+        return JSONResponse(
+            {"error": "workflow_type in path and body must match"}, status_code=400
+        )
     try:
-        await put_workflow(temporal_client(request), spec, registry_config(request), overwrite=True)
+        await put_workflow(
+            temporal_client(request), spec, registry_config(request), overwrite=True
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=503)
     return JSONResponse(spec.model_dump(mode="json"), status_code=200)
 
 
-@router.delete("/registry/workflows/{workflow_type}", status_code=204, responses=error_responses(400, 503))
+@router.delete(
+    "/registry/workflows/{workflow_type}",
+    status_code=204,
+    responses=error_responses(400, 503),
+)
 async def delete_registry_workflow(request: Request) -> Response:
     workflow_type = str(request.path_params.get("workflow_type") or "")
     if not workflow_type:
         return Response("workflow_type is required", status_code=400)
     try:
-        await unregister_workflow(temporal_client(request), workflow_type, registry_config(request))
+        await unregister_workflow(
+            temporal_client(request), workflow_type, registry_config(request)
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=503)
     return Response(status_code=204)
@@ -193,7 +221,9 @@ async def post_workflow_start(request: Request) -> Response:
     try:
         req = WorkflowStartRequest.model_validate(body)
     except ValidationError as e:
-        return JSONResponse({"error": "invalid request", "details": e.errors()}, status_code=400)
+        return JSONResponse(
+            {"error": "invalid request", "details": e.errors()}, status_code=400
+        )
 
     try:
         client = temporal_client(request)
@@ -210,7 +240,9 @@ async def post_workflow_start(request: Request) -> Response:
             status_code=400,
         )
 
-    workflow_id = req.workflow_id or f"{workflow_type.replace('.', '-')}-{os.urandom(4).hex()}"
+    workflow_id = (
+        req.workflow_id or f"{workflow_type.replace('.', '-')}-{os.urandom(4).hex()}"
+    )
     try:
         handle = await client.start_workflow(
             workflow_type,
