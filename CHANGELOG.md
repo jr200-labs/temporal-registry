@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.3](https://github.com/jr200-labs/temporal-registry/compare/v0.1.2...v0.1.3) (2026-05-17)
+
+
+### Bug Fixes
+
+* keep runtime venv path stable ([98e14cb](https://github.com/jr200-labs/temporal-registry/commit/98e14cb715a4683ce7d7a777ad25b730a8b824f0))
+* keep runtime venv path stable ([9928948](https://github.com/jr200-labs/temporal-registry/commit/9928948b822758e3686ab8a25d4eb697698d2825))
+* validate scheduled workflow inputs ([5e54333](https://github.com/jr200-labs/temporal-registry/commit/5e54333141d388b3052f7d180d3f1893e56b9918))
+* validate scheduled workflow inputs ([56c5ddf](https://github.com/jr200-labs/temporal-registry/commit/56c5ddf5149b901edc80c4472cc4d209c87f78c0))
+
 ## [0.1.2](https://github.com/jr200-labs/temporal-registry/compare/v0.1.1...v0.1.2) (2026-05-17)
 
 
