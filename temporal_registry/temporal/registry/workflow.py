@@ -48,9 +48,13 @@ class WorkerRegistry:
         self._registry_service_failed_attempts_since_last_success = 0
 
     @workflow.signal(name="register_worker")
-    async def register_worker(self, payload: dict[str, Any] | WorkerRegistrationSignal) -> None:
+    async def register_worker(
+        self, payload: dict[str, Any] | WorkerRegistrationSignal
+    ) -> None:
         try:
-            registration = TypeAdapter(WorkerRegistrationSignal).validate_python(payload)
+            registration = TypeAdapter(WorkerRegistrationSignal).validate_python(
+                payload
+            )
         except ValidationError as e:
             workflow.logger.warning("register_worker rejected invalid payload: %s", e)
             return
@@ -66,7 +70,9 @@ class WorkerRegistry:
         )
 
         for spec in registration.workflows:
-            self._register_workflow_spec(spec, overwrite=False, source=f"worker {registration.worker_id}")
+            self._register_workflow_spec(
+                spec, overwrite=False, source=f"worker {registration.worker_id}"
+            )
             worker.workflows.append(spec.workflow_type)
 
         self._workers[worker.worker_id] = worker
@@ -78,7 +84,9 @@ class WorkerRegistry:
         except ValidationError as e:
             workflow.logger.warning("put_workflow rejected invalid payload: %s", e)
             return
-        self._register_workflow_spec(signal.workflow, overwrite=signal.overwrite, source="api")
+        self._register_workflow_spec(
+            signal.workflow, overwrite=signal.overwrite, source="api"
+        )
 
     @workflow.signal(name="heartbeat_worker")
     async def heartbeat_worker(self, payload: dict[str, Any] | WorkerIdSignal) -> None:
@@ -106,26 +114,36 @@ class WorkerRegistry:
         self._workers.pop(signal.worker_id, None)
 
     @workflow.signal(name="set_workflow_enabled")
-    async def set_workflow_enabled(self, payload: dict[str, Any] | WorkflowEnabledSignal) -> None:
+    async def set_workflow_enabled(
+        self, payload: dict[str, Any] | WorkflowEnabledSignal
+    ) -> None:
         try:
             signal = TypeAdapter(WorkflowEnabledSignal).validate_python(payload)
         except ValidationError as e:
-            workflow.logger.warning("set_workflow_enabled rejected invalid payload: %s", e)
+            workflow.logger.warning(
+                "set_workflow_enabled rejected invalid payload: %s", e
+            )
             return
         spec = self._workflows.get(signal.workflow_type)
         if spec is not None:
             spec.enabled = signal.enabled
 
     @workflow.signal(name="unregister_workflow")
-    async def unregister_workflow(self, payload: dict[str, Any] | WorkflowTypeSignal) -> None:
+    async def unregister_workflow(
+        self, payload: dict[str, Any] | WorkflowTypeSignal
+    ) -> None:
         try:
             signal = TypeAdapter(WorkflowTypeSignal).validate_python(payload)
         except ValidationError as e:
-            workflow.logger.warning("unregister_workflow rejected invalid payload: %s", e)
+            workflow.logger.warning(
+                "unregister_workflow rejected invalid payload: %s", e
+            )
             return
         self._workflows.pop(signal.workflow_type, None)
         for worker in self._workers.values():
-            worker.workflows = [wf for wf in worker.workflows if wf != signal.workflow_type]
+            worker.workflows = [
+                wf for wf in worker.workflows if wf != signal.workflow_type
+            ]
 
     @workflow.signal(name="shutdown_registry")
     async def shutdown_registry(self) -> None:
@@ -138,7 +156,9 @@ class WorkerRegistry:
         signal = self._registry_service_signal(payload, event="started")
         self._registry_service_process_id = signal.process_id
         self._registry_service_heartbeat_interval_seconds = signal.interval_seconds
-        self._registry_service_failed_attempts_since_last_success = signal.failed_attempts_since_last_success
+        self._registry_service_failed_attempts_since_last_success = (
+            signal.failed_attempts_since_last_success
+        )
         self._last_registry_service_started_epoch = self._utc_now().timestamp()
 
     @workflow.signal(name="registry_service_heartbeat")
@@ -148,13 +168,18 @@ class WorkerRegistry:
         signal = self._registry_service_signal(payload, event="heartbeat")
         self._registry_service_process_id = signal.process_id
         self._registry_service_heartbeat_interval_seconds = signal.interval_seconds
-        self._registry_service_failed_attempts_since_last_success = signal.failed_attempts_since_last_success
+        self._registry_service_failed_attempts_since_last_success = (
+            signal.failed_attempts_since_last_success
+        )
         self._last_registry_service_heartbeat_epoch = self._utc_now().timestamp()
         self._registry_service_heartbeat_count += 1
 
     @workflow.query(name="list_workflows")
     def list_workflows(self) -> list[dict[str, Any]]:
-        return [self._workflow_info(wf).model_dump(mode="json") for wf in sorted(self._workflows)]
+        return [
+            self._workflow_info(wf).model_dump(mode="json")
+            for wf in sorted(self._workflows)
+        ]
 
     @workflow.query(name="get_workflow")
     def get_workflow(self, workflow_type: str) -> dict[str, Any] | None:
@@ -204,7 +229,10 @@ class WorkerRegistry:
 
     @workflow.query(name="list_workers")
     def list_workers(self) -> list[dict[str, Any]]:
-        return [self._worker_info(worker).model_dump(mode="json") for worker in self._workers.values()]
+        return [
+            self._worker_info(worker).model_dump(mode="json")
+            for worker in self._workers.values()
+        ]
 
     @workflow.query(name="get_status")
     def get_status(self) -> dict[str, Any]:
@@ -212,7 +240,9 @@ class WorkerRegistry:
             workflow_count=len(self._workflows),
             worker_count=len(self._workers),
             healthy_worker_count=sum(
-                1 for worker in self._workers.values() if self._is_worker_healthy(worker)
+                1
+                for worker in self._workers.values()
+                if self._is_worker_healthy(worker)
             ),
             started_at_epoch=self._started_at_epoch,
             last_registry_service_started_epoch=self._last_registry_service_started_epoch,
@@ -258,9 +288,13 @@ class WorkerRegistry:
         event: Literal["started", "heartbeat"],
     ) -> RegistryServiceHeartbeatSignal:
         try:
-            signal = TypeAdapter(RegistryServiceHeartbeatSignal).validate_python(payload)
+            signal = TypeAdapter(RegistryServiceHeartbeatSignal).validate_python(
+                payload
+            )
         except ValidationError as e:
-            workflow.logger.warning("registry service %s rejected invalid payload: %s", event, e)
+            workflow.logger.warning(
+                "registry service %s rejected invalid payload: %s", event, e
+            )
             return RegistryServiceHeartbeatSignal(process_id="unknown", event=event)
         return signal
 
@@ -275,7 +309,9 @@ class WorkerRegistry:
             ],
         )
 
-    def _register_workflow_spec(self, spec: RegistryWorkflowSpec, *, overwrite: bool, source: str) -> None:
+    def _register_workflow_spec(
+        self, spec: RegistryWorkflowSpec, *, overwrite: bool, source: str
+    ) -> None:
         existing = self._workflows.get(spec.workflow_type)
         if existing is None or overwrite:
             self._workflows[spec.workflow_type] = spec

@@ -24,7 +24,9 @@ class ServerConfig(BaseModel):
     port: int = Field(default=8080, ge=1, le=65535)
     # Hard cap on request body size, applied before route handlers run. 1 MiB
     # is comfortably above any realistic /run or /schedules payload.
-    max_request_body_bytes: int = Field(default=1024 * 1024, ge=1024, le=64 * 1024 * 1024)
+    max_request_body_bytes: int = Field(
+        default=1024 * 1024, ge=1024, le=64 * 1024 * 1024
+    )
 
 
 class AuthConfig(BaseModel):

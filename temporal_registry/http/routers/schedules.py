@@ -64,7 +64,8 @@ async def post_schedule(request: Request) -> Response:
         req = ScheduleStartRequest.model_validate(body)
     except ValidationError as e:
         return JSONResponse(
-            {"error": "invalid request", "details": e.errors(include_context=False)}, status_code=400
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
         )
 
     try:
@@ -113,7 +114,9 @@ async def post_schedule(request: Request) -> Response:
             except Exception as e:  # noqa: BLE001
                 _ = e
     except ScheduleAlreadyRunningError:
-        return JSONResponse({"status": "already_exists", "id": schedule_id}, status_code=200)
+        return JSONResponse(
+            {"status": "already_exists", "id": schedule_id}, status_code=200
+        )
     except Exception as e:  # noqa: BLE001
         return Response(str(e), status_code=500)
     if warnings:
@@ -121,7 +124,9 @@ async def post_schedule(request: Request) -> Response:
     return Response(status_code=201)
 
 
-@router.delete("/schedules/{schedule_id}", status_code=204, responses=error_responses(500))
+@router.delete(
+    "/schedules/{schedule_id}", status_code=204, responses=error_responses(500)
+)
 async def delete_schedule(request: Request) -> Response:
     schedule_id = str(request.path_params.get("schedule_id") or "")
     handle = temporal_client(request).get_schedule_handle(schedule_id)
@@ -168,7 +173,9 @@ async def get_schedule(request: Request) -> Response:
         "recent": [
             {
                 "scheduled_at": _aware_utc_isoformat(a.scheduled_at),
-                "started_at": _aware_utc_isoformat(a.started_at) if getattr(a, "started_at", None) else "",
+                "started_at": _aware_utc_isoformat(a.started_at)
+                if getattr(a, "started_at", None)
+                else "",
             }
             for a in (info.recent_actions or [])
         ],
@@ -210,13 +217,17 @@ def _schedule_input_warnings(
 def _schedule_spec(req: ScheduleStartRequest) -> ScheduleSpec:
     if not req.fire_offsets_seconds:
         return ScheduleSpec(
-            intervals=[ScheduleIntervalSpec(every=timedelta(seconds=req.interval_seconds))],
+            intervals=[
+                ScheduleIntervalSpec(every=timedelta(seconds=req.interval_seconds))
+            ],
             start_at=req.start_at,
             end_at=req.end_at,
         )
 
     now = _ceil_to_second(datetime.now(timezone.utc))
-    positive_offsets = sorted({offset for offset in req.fire_offsets_seconds if offset > 0})
+    positive_offsets = sorted(
+        {offset for offset in req.fire_offsets_seconds if offset > 0}
+    )
     if not positive_offsets:
         far_future = now + timedelta(days=3650)
         return ScheduleSpec(

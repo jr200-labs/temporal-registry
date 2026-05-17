@@ -26,7 +26,9 @@ from .registry_schemas import (
 log = logging.getLogger("temporal_registry.temporal.registry")
 
 
-async def ensure_registry_workflow(client: Client, config: RegistryServiceConfig) -> None:
+async def ensure_registry_workflow(
+    client: Client, config: RegistryServiceConfig
+) -> None:
     # ALLOW_DUPLICATE so that a `shutdown_registry` followed by registry service
     # restart can spin up a fresh registry instance under the same workflow id.
     try:
@@ -40,21 +42,30 @@ async def ensure_registry_workflow(client: Client, config: RegistryServiceConfig
         return
 
 
-async def register_worker(client: Client, registration: Any, config: RegistryServiceConfig) -> None:
+async def register_worker(
+    client: Client, registration: Any, config: RegistryServiceConfig
+) -> None:
     await ensure_registry_workflow(client, config)
     handle = client.get_workflow_handle(config.registry.workflow_id)
     await handle.signal("register_worker", registration.model_dump(mode="json"))
 
 
-async def heartbeat_worker(client: Client, worker_id: str, config: RegistryServiceConfig) -> None:
-    handle = client.get_workflow_handle(config.registry.workflow_id)
-    await handle.signal("heartbeat_worker", WorkerIdSignal(worker_id=worker_id).model_dump(mode="json"))
-
-
-async def unregister_workflow(client: Client, workflow_type: str, config: RegistryServiceConfig) -> None:
+async def heartbeat_worker(
+    client: Client, worker_id: str, config: RegistryServiceConfig
+) -> None:
     handle = client.get_workflow_handle(config.registry.workflow_id)
     await handle.signal(
-        "unregister_workflow", WorkflowTypeSignal(workflow_type=workflow_type).model_dump(mode="json")
+        "heartbeat_worker", WorkerIdSignal(worker_id=worker_id).model_dump(mode="json")
+    )
+
+
+async def unregister_workflow(
+    client: Client, workflow_type: str, config: RegistryServiceConfig
+) -> None:
+    handle = client.get_workflow_handle(config.registry.workflow_id)
+    await handle.signal(
+        "unregister_workflow",
+        WorkflowTypeSignal(workflow_type=workflow_type).model_dump(mode="json"),
     )
 
 
@@ -69,7 +80,9 @@ async def put_workflow(
     handle = client.get_workflow_handle(config.registry.workflow_id)
     await handle.signal(
         "put_workflow",
-        WorkflowSpecSignal(workflow=workflow, overwrite=overwrite).model_dump(mode="json"),
+        WorkflowSpecSignal(workflow=workflow, overwrite=overwrite).model_dump(
+            mode="json"
+        ),
     )
 
 
@@ -79,7 +92,11 @@ async def shutdown_registry(client: Client, config: RegistryServiceConfig) -> No
 
 
 async def mark_registry_service_started(
-    client: Client, process_id: str, config: RegistryServiceConfig, *, interval_seconds: int = 0
+    client: Client,
+    process_id: str,
+    config: RegistryServiceConfig,
+    *,
+    interval_seconds: int = 0,
 ) -> None:
     await ensure_registry_workflow(client, config)
     handle = client.get_workflow_handle(config.registry.workflow_id)
@@ -108,13 +125,18 @@ async def heartbeat_registry_service(
             process_id=process_id,
             event="heartbeat",
             interval_seconds=max(0, interval_seconds),
-            failed_attempts_since_last_success=max(0, failed_attempts_since_last_success),
+            failed_attempts_since_last_success=max(
+                0, failed_attempts_since_last_success
+            ),
         ).model_dump(mode="json"),
     )
 
 
 async def registry_service_heartbeat_loop(
-    client: Client, process_id: str, interval_seconds: int, config: RegistryServiceConfig
+    client: Client,
+    process_id: str,
+    interval_seconds: int,
+    config: RegistryServiceConfig,
 ) -> None:
     failed_attempts = 0
     while True:
@@ -144,7 +166,9 @@ async def heartbeat_loop(
         await asyncio.sleep(max(1, interval_seconds))
 
 
-async def list_workflows(client: Client, config: RegistryServiceConfig) -> list[RegistryWorkflowInfo]:
+async def list_workflows(
+    client: Client, config: RegistryServiceConfig
+) -> list[RegistryWorkflowInfo]:
     handle = client.get_workflow_handle(config.registry.workflow_id)
     result = await handle.query("list_workflows")
     return [RegistryWorkflowInfo.model_validate(item) for item in list(result or [])]

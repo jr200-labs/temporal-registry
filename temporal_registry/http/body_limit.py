@@ -8,7 +8,9 @@ DEFAULT_MAX_BODY_BYTES = 1 * 1024 * 1024  # 1 MiB
 
 
 class BodyLimitMiddleware:
-    def __init__(self, app: ASGIApp, *, max_bytes: int = DEFAULT_MAX_BODY_BYTES) -> None:
+    def __init__(
+        self, app: ASGIApp, *, max_bytes: int = DEFAULT_MAX_BODY_BYTES
+    ) -> None:
         self.app = app
         self.max_bytes = max_bytes
 
@@ -58,7 +60,9 @@ class BodyLimitMiddleware:
 
 
 async def _too_large(send: Send, received: int, limit: int) -> None:
-    body = f"request body exceeds {limit} bytes (received >= {received})".encode("utf-8")
+    body = f"request body exceeds {limit} bytes (received >= {received})".encode(
+        "utf-8"
+    )
     await send(
         {
             "type": "http.response.start",

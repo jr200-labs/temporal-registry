@@ -83,7 +83,9 @@ def configure_json_logging(level: str | int = logging.INFO) -> None:
     root.setLevel(resolved_level)
 
 
-def temporal_log_extra(workflow_id: str = "", run_id: str = "", **values: Any) -> dict[str, Any]:
+def temporal_log_extra(
+    workflow_id: str = "", run_id: str = "", **values: Any
+) -> dict[str, Any]:
     extra = {key: value for key, value in values.items() if value is not None}
     if workflow_id:
         extra["workflow_id"] = workflow_id

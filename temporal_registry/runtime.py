@@ -116,7 +116,9 @@ def main(argv: list[str] | None = None) -> None:
         max_request_body_bytes=config.server.max_request_body_bytes,
         config=config,
     )
-    uvicorn.run(app, host=host, port=port, log_level=config.observability.logging.level.lower())
+    uvicorn.run(
+        app, host=host, port=port, log_level=config.observability.logging.level.lower()
+    )
 
 
 if __name__ == "__main__":

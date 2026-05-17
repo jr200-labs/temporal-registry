@@ -60,10 +60,16 @@ class SharedSecretAuthMiddleware(BaseHTTPMiddleware):
         if not self._enabled:
             return await call_next(request)
         path = request.url.path
-        if path in _PUBLIC_ROUTES or (self._metrics_path and path == self._metrics_path):
+        if path in _PUBLIC_ROUTES or (
+            self._metrics_path and path == self._metrics_path
+        ):
             return await call_next(request)
         if not self._token:
-            log.warning("auth enabled but no token configured; rejecting %s %s", request.method, path)
+            log.warning(
+                "auth enabled but no token configured; rejecting %s %s",
+                request.method,
+                path,
+            )
             return Response("unauthorized", status_code=401)
         presented = extract_bearer(request.headers.get("authorization", ""))
         if not presented or not constant_time_eq(presented, self._token):

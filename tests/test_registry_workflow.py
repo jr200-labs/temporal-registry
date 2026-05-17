@@ -41,7 +41,9 @@ def test_registry_normalizes_input_warnings() -> None:
     assert warnings == [{"field": "agent_acp_provider", "message": "provider missing"}]
 
 
-def test_registry_worker_registration_does_not_overwrite_conflicting_workflow_spec() -> None:
+def test_registry_worker_registration_does_not_overwrite_conflicting_workflow_spec() -> (
+    None
+):
     registry = WorkerRegistry()
     original = RegistryWorkflowSpec(
         workflow_type="example.workflow.v1",

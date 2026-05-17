@@ -133,7 +133,9 @@ METRICS = MetricsStore()
 
 
 async def metrics_endpoint(_request: Request) -> Response:
-    return PlainTextResponse(METRICS.render_prometheus(), media_type=METRICS.content_type)
+    return PlainTextResponse(
+        METRICS.render_prometheus(), media_type=METRICS.content_type
+    )
 
 
 def route_name(request: Request) -> str:
@@ -188,13 +190,19 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
         request: Request,
         call_next: Callable[[Request], Awaitable[Response]],
     ) -> Response:
-        return await observability_middleware(access_log=self.access_log)(request, call_next)
+        return await observability_middleware(access_log=self.access_log)(
+            request, call_next
+        )
 
 
-def configure_otel(app: ASGIApp, service_name: str, endpoint: str, insecure: bool) -> None:
+def configure_otel(
+    app: ASGIApp, service_name: str, endpoint: str, insecure: bool
+) -> None:
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
+            OTLPSpanExporter,
+        )
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
