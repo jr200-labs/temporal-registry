@@ -6,7 +6,7 @@
 ARG PYTHON_VERSION=3.14
 FROM python:${PYTHON_VERSION}-slim AS build
 
-WORKDIR /build
+WORKDIR /app
 
 # uv resolves and installs from the locked dep graph; pin uv itself so build
 # reproducibility doesn't slide as new uv releases ship.
@@ -42,8 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy the resolved venv and the application source so console scripts work.
-COPY --from=build /build/.venv /app/.venv
-COPY --from=build /build/temporal_registry /app/temporal_registry
+COPY --from=build /app/.venv /app/.venv
+COPY --from=build /app/temporal_registry /app/temporal_registry
 
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1
