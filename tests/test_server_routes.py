@@ -675,6 +675,55 @@ def test_post_schedule_returns_generic_missing_input_warning() -> None:
     }
 
 
+def test_post_schedule_validates_registered_input_schema() -> None:
+    old_client = _Request.client
+    client = _Client()
+    _Request.client = client
+    old_resolve = routes_schedules.resolve_workflow
+
+    async def fake_resolve(_client, workflow_type: str, _config):
+        assert workflow_type == "agent.run.v1"
+        return _Target(
+            task_queue="agent-harness",
+            input_schema={
+                "type": "object",
+                "required": ["agent_id", "workspace", "prompt"],
+                "properties": {
+                    "agent_id": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "prompt": {"type": "string"},
+                },
+            },
+        )
+
+    routes_schedules.resolve_workflow = fake_resolve
+    try:
+        response = asyncio.run(
+            routes_schedules.post_schedule(
+                _Request(
+                    {
+                        "workflow_type": "agent.run.v1",
+                        "input": {"agent_id": "hello-world"},
+                        "fire_offsets_seconds": [10],
+                    },
+                    {"schedule_id": "agent-run-offsets"},
+                ),
+                "agent-run-offsets",
+            )
+        )
+    finally:
+        _Request.client = old_client
+        routes_schedules.resolve_workflow = old_resolve
+
+    assert response.status_code == 400
+    payload = json.loads(response.body)
+    assert payload["error"] == "invalid workflow input"
+    assert {tuple(item["loc"]) for item in payload["details"]} == {
+        ("workspace",),
+        ("prompt",),
+    }
+
+
 def test_post_schedule_suppresses_warning_when_input_field_is_present() -> None:
     old_client = _Request.client
     client = _Client()
