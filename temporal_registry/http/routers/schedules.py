@@ -36,6 +36,7 @@ from ..schemas.responses import (
     error_responses,
     request_body,
 )
+from .payloads import validate_schema
 from .search_attributes import SEARCH_ATTRIBUTE_KEYS
 
 
@@ -86,6 +87,12 @@ async def post_schedule(request: Request, schedule_id: str) -> Response:
         )
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
+    validation_errors = validate_schema(req.input, target.input_schema)
+    if validation_errors:
+        return JSONResponse(
+            {"error": "invalid workflow input", "details": validation_errors},
+            status_code=400,
+        )
     warnings = _schedule_input_warnings(req.input, target.schedule_input_warnings)
 
     schedule = Schedule(
