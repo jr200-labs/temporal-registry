@@ -290,7 +290,7 @@ def test_delete_registry_workflow_signals_unregister() -> None:
     try:
         response = asyncio.run(
             routes_registry.delete_registry_workflow(
-                _Request({}, {"workflow_type": "agent.run.v1"})
+                _Request({}, {"workflow_type": "agent.run.v1"}), "agent.run.v1"
             )
         )
     finally:
@@ -384,7 +384,8 @@ def test_put_registry_workflow_replaces_full_spec() -> None:
                 _Request(
                     _workflow_spec_payload(description="Updated."),
                     {"workflow_type": "example.workflow.v1"},
-                )
+                ),
+                "example.workflow.v1",
             )
         )
     finally:
@@ -403,7 +404,8 @@ def test_put_registry_workflow_requires_path_body_match() -> None:
             _Request(
                 _workflow_spec_payload(workflow_type="different.workflow.v1"),
                 {"workflow_type": "example.workflow.v1"},
-            )
+            ),
+            "example.workflow.v1",
         )
     )
 
@@ -495,7 +497,8 @@ def test_post_schedule_creates_temporal_schedule_from_registry_target() -> None:
                         "note": "polls Slack",
                     },
                     {"schedule_id": "slack-bridge"},
-                )
+                ),
+                "slack-bridge",
             )
         )
     finally:
@@ -533,7 +536,8 @@ def test_post_schedule_accepts_timezone_aware_datetimes() -> None:
                         "end_at": "2026-05-16T11:00:00+09:00",
                     },
                     {"schedule_id": "agent-run-window"},
-                )
+                ),
+                "agent-run-window",
             )
         )
     finally:
@@ -565,7 +569,8 @@ def test_post_schedule_rejects_naive_datetimes() -> None:
                         "start_at": "2026-05-16T10:00:00",
                     },
                     {"schedule_id": "agent-run-naive"},
-                )
+                ),
+                "agent-run-naive",
             )
         )
     finally:
@@ -599,7 +604,8 @@ def test_post_schedule_supports_relative_fire_offsets() -> None:
                         "search_attributes": {"agent_id": "hello-world"},
                     },
                     {"schedule_id": "agent-run-offsets"},
-                )
+                ),
+                "agent-run-offsets",
             )
         )
     finally:
@@ -650,7 +656,8 @@ def test_post_schedule_returns_generic_missing_input_warning() -> None:
                         "search_attributes": {"agent_id": "hello-world"},
                     },
                     {"schedule_id": "agent-run-offsets"},
-                )
+                ),
+                "agent-run-offsets",
             )
         )
     finally:
@@ -705,7 +712,8 @@ def test_post_schedule_suppresses_warning_when_input_field_is_present() -> None:
                         },
                     },
                     {"schedule_id": "agent-run-offsets"},
-                )
+                ),
+                "agent-run-offsets",
             )
         )
     finally:
@@ -759,7 +767,8 @@ def test_post_schedule_rejects_unknown_search_attribute() -> None:
                         "search_attributes": {"unsupported": "value"},
                     },
                     {"schedule_id": "slack-bridge"},
-                )
+                ),
+                "slack-bridge",
             )
         )
     finally:

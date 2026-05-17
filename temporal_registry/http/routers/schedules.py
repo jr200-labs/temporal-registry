@@ -52,8 +52,7 @@ router = APIRouter(tags=["schedules"])
     },
     openapi_extra=request_body(ScheduleStartRequest),
 )
-async def post_schedule(request: Request) -> Response:
-    schedule_id = str(request.path_params.get("schedule_id") or "")
+async def post_schedule(request: Request, schedule_id: str) -> Response:
     if not schedule_id:
         return Response("schedule_id is required", status_code=400)
     try:
@@ -127,8 +126,7 @@ async def post_schedule(request: Request) -> Response:
 @router.delete(
     "/schedules/{schedule_id}", status_code=204, responses=error_responses(500)
 )
-async def delete_schedule(request: Request) -> Response:
-    schedule_id = str(request.path_params.get("schedule_id") or "")
+async def delete_schedule(request: Request, schedule_id: str) -> Response:
     handle = temporal_client(request).get_schedule_handle(schedule_id)
     try:
         await handle.delete()
@@ -142,8 +140,7 @@ async def delete_schedule(request: Request) -> Response:
     response_model=ScheduleDescriptionResponse,
     responses=error_responses(403, 404, 500, 503),
 )
-async def get_schedule(request: Request) -> Response:
-    schedule_id = str(request.path_params.get("schedule_id") or "")
+async def get_schedule(request: Request, schedule_id: str) -> Response:
     handle = temporal_client(request).get_schedule_handle(schedule_id)
     try:
         desc = await handle.describe()

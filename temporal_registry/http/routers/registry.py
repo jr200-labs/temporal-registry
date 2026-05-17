@@ -92,8 +92,7 @@ async def get_registry_status(request: Request) -> Response:
     response_model=RegistryWorkflowInfo,
     responses=error_responses(404, 503),
 )
-async def get_registry_workflow(request: Request) -> Response:
-    workflow_type = str(request.path_params.get("workflow_type") or "")
+async def get_registry_workflow(request: Request, workflow_type: str) -> Response:
     try:
         info = await get_workflow(
             temporal_client(request), workflow_type, registry_config(request)
@@ -146,8 +145,7 @@ async def post_registry_workflow(request: Request) -> Response:
     responses=error_responses(400, 503),
     openapi_extra=request_body(RegistryWorkflowSpec),
 )
-async def put_registry_workflow(request: Request) -> Response:
-    workflow_type = str(request.path_params.get("workflow_type") or "")
+async def put_registry_workflow(request: Request, workflow_type: str) -> Response:
     if not workflow_type:
         return Response("workflow_type is required", status_code=400)
     try:
@@ -179,8 +177,7 @@ async def put_registry_workflow(request: Request) -> Response:
     status_code=204,
     responses=error_responses(400, 503),
 )
-async def delete_registry_workflow(request: Request) -> Response:
-    workflow_type = str(request.path_params.get("workflow_type") or "")
+async def delete_registry_workflow(request: Request, workflow_type: str) -> Response:
     if not workflow_type:
         return Response("workflow_type is required", status_code=400)
     try:
@@ -212,8 +209,7 @@ async def post_registry_shutdown(request: Request) -> Response:
     responses=error_responses(400, 404, 500, 503),
     openapi_extra=request_body(WorkflowStartRequest),
 )
-async def post_workflow_start(request: Request) -> Response:
-    workflow_type = str(request.path_params.get("workflow_type") or "")
+async def post_workflow_start(request: Request, workflow_type: str) -> Response:
     try:
         body = await request.json()
     except json.JSONDecodeError as e:
