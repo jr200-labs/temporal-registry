@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.6](https://github.com/jr200-labs/temporal-registry/compare/v0.1.5...v0.1.6) (2026-05-18)
+
+
+### Features
+
+* ensure Temporal namespace on startup ([#11](https://github.com/jr200-labs/temporal-registry/issues/11)) ([d3fe363](https://github.com/jr200-labs/temporal-registry/commit/d3fe3631dd1f5a0b43f03c27c869bcf32514adee))
+
 ## [0.1.5](https://github.com/jr200-labs/temporal-registry/compare/v0.1.4...v0.1.5) (2026-05-18)
 
 
