@@ -9,7 +9,9 @@ from typing import Any, Literal
 
 from pydantic import TypeAdapter, ValidationError
 from temporalio import workflow
-from temporalio.common import RawValue
+from temporalio.common import RawValue, RetryPolicy
+
+from .activity_types import ACTIVITY_ENSURE_SEARCH_ATTRIBUTES
 
 from .registry_schemas import (
     RegistryWorker,
@@ -19,6 +21,7 @@ from .registry_schemas import (
     RegistryServiceHeartbeatSignal,
     RegistryStatus,
     ResolvedWorkflowTarget,
+    SearchAttributeSpec,
     SearchAttributeSummary,
     WorkerIdSignal,
     WorkerRegistrationSignal,
@@ -30,6 +33,8 @@ from .registry_schemas import (
 
 GC_INTERVAL_SECONDS = 60
 GC_STALE_FACTOR = 6
+ENSURE_SEARCH_ATTRIBUTES_TIMEOUT_SECONDS = 30
+SEARCH_ATTRIBUTE_PROVISIONING_PATCH = "search-attribute-provisioning-v1"
 log = logging.getLogger("temporal_registry.temporal.registry.workflow")
 
 
@@ -59,6 +64,11 @@ class WorkerRegistry:
             workflow.logger.warning("register_worker rejected invalid payload: %s", e)
             return
 
+        if workflow.patched(SEARCH_ATTRIBUTE_PROVISIONING_PATCH):
+            attrs = self._search_attributes_from_workflows(registration.workflows)
+            if attrs is None or not await self._ensure_search_attributes(attrs):
+                return
+
         worker = RegistryWorker(
             worker_id=registration.worker_id,
             task_queue=registration.task_queue,
@@ -84,6 +94,11 @@ class WorkerRegistry:
         except ValidationError as e:
             workflow.logger.warning("put_workflow rejected invalid payload: %s", e)
             return
+        if workflow.patched(SEARCH_ATTRIBUTE_PROVISIONING_PATCH):
+            if not await self._ensure_search_attributes(
+                signal.workflow.search_attributes
+            ):
+                return
         self._register_workflow_spec(
             signal.workflow, overwrite=signal.overwrite, source="api"
         )
@@ -297,6 +312,41 @@ class WorkerRegistry:
             )
             return RegistryServiceHeartbeatSignal(process_id="unknown", event=event)
         return signal
+
+    async def _ensure_search_attributes(self, attrs: list[SearchAttributeSpec]) -> bool:
+        if not attrs:
+            return True
+        try:
+            await workflow.execute_activity(
+                ACTIVITY_ENSURE_SEARCH_ATTRIBUTES,
+                [attr.model_dump(mode="json") for attr in attrs],
+                start_to_close_timeout=timedelta(
+                    seconds=ENSURE_SEARCH_ATTRIBUTES_TIMEOUT_SECONDS
+                ),
+                retry_policy=RetryPolicy(maximum_attempts=3),
+            )
+        except Exception as e:  # noqa: BLE001 - keep bad admin state from advertising unavailable workflows.
+            workflow.logger.error("search attribute provisioning failed: %s", e)
+            return False
+        return True
+
+    def _search_attributes_from_workflows(
+        self, workflows: list[RegistryWorkflowSpec]
+    ) -> list[SearchAttributeSpec] | None:
+        attrs: dict[str, SearchAttributeSpec] = {}
+        for spec in workflows:
+            for attr in spec.search_attributes:
+                existing = attrs.get(attr.name)
+                if existing is not None and existing.type != attr.type:
+                    workflow.logger.error(
+                        "search attribute %s registered with conflicting types: %s and %s",
+                        attr.name,
+                        existing.type,
+                        attr.type,
+                    )
+                    return None
+                attrs[attr.name] = attr
+        return list(attrs.values())
 
     def _workflow_info(self, workflow_type: str) -> RegistryWorkflowInfo:
         spec = self._workflows[workflow_type]

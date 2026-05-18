@@ -14,9 +14,11 @@ from temporal_registry.http.observability import METRICS
 from temporal_registry.config_schemas import RegistryServiceConfig
 from temporal_registry.temporal.registry.registry_schemas import (
     InputWarning,
+    SearchAttributeReconcileReport,
     RegistryWorkflowSpec,
     SearchAttributeSpec,
     SearchAttributeSummary,
+    TemporalSearchAttribute,
 )
 from temporal_registry.http.routers import registry as routes_registry
 from temporal_registry.http.routers import run as routes_run
@@ -176,12 +178,16 @@ def test_openapi_documents_registry_routes() -> None:
     assert "/ready" in spec["paths"]
     assert "/registry/workflows" in spec["paths"]
     assert "/registry/status" in spec["paths"]
+    assert "/registry/temporal/search-attributes" in spec["paths"]
+    assert "post" in spec["paths"]["/registry/temporal/search-attributes"]
     assert "/workflows/{workflow_type}/start" in spec["paths"]
     assert "/schedules/{schedule_id}" in spec["paths"]
     assert "RunRequest" in spec["components"]["schemas"]
     assert "RegistryWorkflowSpec" in spec["components"]["schemas"]
     assert "RegistryStatus" in spec["components"]["schemas"]
     assert "ScheduleStartRequest" in spec["components"]["schemas"]
+    assert "SearchAttributeReconcileRequest" in spec["components"]["schemas"]
+    assert "SearchAttributeReconcileReport" in spec["components"]["schemas"]
 
 
 def test_health_endpoint_does_not_require_dependencies() -> None:
@@ -470,6 +476,73 @@ def test_get_registry_search_attributes_returns_aggregate_metadata() -> None:
             }
         ]
     }
+
+
+def test_get_temporal_search_attributes_returns_namespace_attributes() -> None:
+    old_client = _Request.client
+    client = object()
+    _Request.client = client
+    old_list = routes_registry.list_temporal_search_attributes
+
+    async def fake_list(c, namespace: str):
+        assert c is client
+        assert namespace == "default"
+        return [
+            TemporalSearchAttribute(
+                name="agent_id",
+                type="Keyword",
+                source="custom",
+            )
+        ]
+
+    routes_registry.list_temporal_search_attributes = fake_list
+    try:
+        response = asyncio.run(
+            routes_registry.get_temporal_search_attributes(_Request({}))
+        )
+    finally:
+        _Request.client = old_client
+        routes_registry.list_temporal_search_attributes = old_list
+
+    assert response.status_code == 200
+    assert json.loads(response.body) == {
+        "search_attributes": [
+            {"name": "agent_id", "type": "Keyword", "source": "custom"}
+        ]
+    }
+
+
+def test_post_temporal_search_attributes_reconcile_runs_requested_mode() -> None:
+    old_client = _Request.client
+    client = object()
+    _Request.client = client
+    old_reconcile = routes_registry.reconcile_search_attributes
+    calls: list[dict] = []
+
+    async def fake_reconcile(c, _config, **kwargs):
+        assert c is client
+        calls.append(kwargs)
+        return SearchAttributeReconcileReport(mode=kwargs["mode"])
+
+    routes_registry.reconcile_search_attributes = fake_reconcile
+    try:
+        response = asyncio.run(
+            routes_registry.post_temporal_search_attributes_reconcile(
+                _Request(
+                    {
+                        "mode": "replace",
+                        "attributes": ["agent_id"],
+                        "confirm": True,
+                    }
+                )
+            )
+        )
+    finally:
+        _Request.client = old_client
+        routes_registry.reconcile_search_attributes = old_reconcile
+
+    assert response.status_code == 200
+    assert calls == [{"mode": "replace", "attributes": ["agent_id"], "confirm": True}]
 
 
 def test_post_schedule_creates_temporal_schedule_from_registry_target() -> None:

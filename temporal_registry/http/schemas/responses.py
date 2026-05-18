@@ -11,9 +11,16 @@ from pydantic import BaseModel, Field
 from ...temporal.registry.registry_schemas import (
     RegistryWorkflowInfo,
     RegistryWorkflowSpec,
+    SearchAttributeReconcileReport,
     SearchAttributeSummary,
+    TemporalSearchAttribute,
 )
-from .requests import RunRequest, ScheduleStartRequest, WorkflowStartRequest
+from .requests import (
+    RunRequest,
+    ScheduleStartRequest,
+    SearchAttributeReconcileRequest,
+    WorkflowStartRequest,
+)
 
 
 class ErrorResponse(BaseModel):
@@ -31,6 +38,10 @@ class WorkflowListResponse(BaseModel):
 
 class SearchAttributeListResponse(BaseModel):
     search_attributes: list[SearchAttributeSummary]
+
+
+class TemporalSearchAttributeListResponse(BaseModel):
+    search_attributes: list[TemporalSearchAttribute]
 
 
 class RunStartResponse(BaseModel):
@@ -111,6 +122,8 @@ def install_openapi_schema(app: FastAPI) -> None:
             RunRequest,
             RegistryWorkflowSpec,
             ScheduleStartRequest,
+            SearchAttributeReconcileRequest,
+            SearchAttributeReconcileReport,
             WorkflowStartRequest,
         ):
             schema = model.model_json_schema(

@@ -133,6 +133,57 @@ The registry records a startup signal and a low-frequency registry service heart
 signal in the registry workflow history so the Temporal UI has an obvious sign
 that the registry service is active.
 
+## Search Attribute Administration
+
+Registered workers declare the custom search attributes their workflows use. The
+registry provisions those attributes in the configured Temporal namespace before
+advertising the worker or workflow. Missing attributes are created automatically;
+existing attributes with the same type are left unchanged.
+
+Type conflicts are not overwritten during normal registration. A same-name,
+different-type attribute is a namespace-level admin concern, so the registry
+fails provisioning and keeps the workflow unavailable until an operator reconciles
+it explicitly.
+
+List attributes declared by registered workflows:
+
+```bash
+curl "$TEMPORAL_REGISTRY_URL/registry/search-attributes"
+```
+
+List attributes that actually exist in the Temporal namespace:
+
+```bash
+curl "$TEMPORAL_REGISTRY_URL/registry/temporal/search-attributes"
+```
+
+Reconcile registered declarations against Temporal:
+
+```bash
+curl -X POST "$TEMPORAL_REGISTRY_URL/registry/temporal/search-attributes" \
+  -H 'content-type: application/json' \
+  -d '{"mode":"validate"}'
+```
+
+Reconcile modes:
+
+- `validate` reports missing and conflicting attributes without changing Temporal.
+- `ensure` creates missing attributes and refuses type conflicts.
+- `replace` removes conflicting custom attributes and recreates them with the
+  registered type. It requires an explicit `attributes` list and `confirm: true`.
+
+Example explicit replacement:
+
+```bash
+curl -X POST "$TEMPORAL_REGISTRY_URL/registry/temporal/search-attributes" \
+  -H 'content-type: application/json' \
+  -d '{"mode":"replace","attributes":["agent_id"],"confirm":true}'
+```
+
+`replace` never removes system search attributes. Use it only as an admin
+migration step because changing an attribute type can invalidate existing
+visibility queries and assumptions.
+
 Useful targets:
 
 ```bash

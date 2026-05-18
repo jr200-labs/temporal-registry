@@ -38,12 +38,17 @@ async def registry_lifespan(app: FastAPI):
         mark_registry_service_started,
         registry_service_heartbeat_loop,
     )
+    from .temporal.registry.activities import make_registry_activities
     from .temporal.registry.workflow import WorkerRegistry
 
     registry_worker = Worker(
         app.state.temporal_client,
         task_queue=config.registry.task_queue,
         workflows=[WorkerRegistry],
+        activities=make_registry_activities(
+            app.state.temporal_client,
+            config.temporal.namespace,
+        ),
     )
     registry_task = asyncio.create_task(registry_worker.run())
     await ensure_registry_workflow(app.state.temporal_client, config)

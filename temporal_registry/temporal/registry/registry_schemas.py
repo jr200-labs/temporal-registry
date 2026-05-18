@@ -32,6 +32,37 @@ class SearchAttributeSummary(BaseModel):
     workflows: list[str] = Field(default_factory=list)
 
 
+class TemporalSearchAttribute(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    type: Literal[
+        "Keyword",
+        "KeywordList",
+        "Text",
+        "Int",
+        "Double",
+        "Bool",
+        "Datetime",
+        "Unspecified",
+    ]
+    source: Literal["custom", "system"]
+
+
+class SearchAttributeReconcileReport(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["validate", "ensure", "replace"]
+    desired: list[SearchAttributeSpec] = Field(default_factory=list)
+    existing: list[TemporalSearchAttribute] = Field(default_factory=list)
+    missing: list[SearchAttributeSpec] = Field(default_factory=list)
+    conflicts: list[dict[str, str]] = Field(default_factory=list)
+    added: list[SearchAttributeSpec] = Field(default_factory=list)
+    replaced: list[SearchAttributeSpec] = Field(default_factory=list)
+    unchanged: list[SearchAttributeSpec] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class InputWarning(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
