@@ -64,6 +64,7 @@ class TemporalConfig(BaseModel):
 
     address: str = Field(min_length=1)
     namespace: str = Field(min_length=1)
+    namespace_retention_days: int = Field(default=30, ge=1, le=3650)
     tls: bool
     api_key: str = ""
 

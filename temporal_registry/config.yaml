@@ -1,6 +1,7 @@
 temporal:
   address: "${TEMPORAL_ADDRESS:-localhost:7233}"
   namespace: "${TEMPORAL_NAMESPACE:-default}"
+  namespace_retention_days: 30
   tls: "${TEMPORAL_TLS:-0}"
   api_key: "${TEMPORAL_API_KEY:-}"
 
