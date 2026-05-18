@@ -14,8 +14,10 @@ from ...temporal.registry.client import (
     get_status,
     get_workflow,
     list_search_attributes,
+    list_temporal_search_attributes,
     list_workflows,
     put_workflow,
+    reconcile_search_attributes,
     resolve_workflow,
     shutdown_registry,
     unregister_workflow,
@@ -26,10 +28,12 @@ from ...temporal.registry.registry_schemas import (
     RegistryWorkflowSpec,
 )
 from ..dependencies import registry_config, temporal_client
-from ..schemas.requests import WorkflowStartRequest
+from ..schemas.requests import SearchAttributeReconcileRequest, WorkflowStartRequest
 from ..schemas.responses import (
     RegistryShutdownResponse,
+    SearchAttributeReconcileReport,
     SearchAttributeListResponse,
+    TemporalSearchAttributeListResponse,
     WorkflowListResponse,
     WorkflowStartResponse,
     error_responses,
@@ -74,6 +78,56 @@ async def get_registry_search_attributes(request: Request) -> Response:
     return JSONResponse(
         {"search_attributes": [attr.model_dump(mode="json") for attr in attrs]}
     )
+
+
+@router.get(
+    "/registry/temporal/search-attributes",
+    response_model=TemporalSearchAttributeListResponse,
+    responses=error_responses(503),
+)
+async def get_temporal_search_attributes(request: Request) -> Response:
+    try:
+        attrs = await list_temporal_search_attributes(
+            temporal_client(request), registry_config(request).temporal.namespace
+        )
+    except Exception as e:  # noqa: BLE001
+        return Response(str(e), status_code=503)
+    return JSONResponse(
+        {"search_attributes": [attr.model_dump(mode="json") for attr in attrs]}
+    )
+
+
+@router.post(
+    "/registry/temporal/search-attributes",
+    response_model=SearchAttributeReconcileReport,
+    responses=error_responses(400, 503),
+    openapi_extra=request_body(SearchAttributeReconcileRequest),
+)
+async def post_temporal_search_attributes_reconcile(request: Request) -> Response:
+    try:
+        body = await request.json()
+    except json.JSONDecodeError as e:
+        return Response(str(e), status_code=400)
+    try:
+        req = SearchAttributeReconcileRequest.model_validate(body)
+    except ValidationError as e:
+        return JSONResponse(
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
+        )
+    try:
+        report = await reconcile_search_attributes(
+            temporal_client(request),
+            registry_config(request),
+            mode=req.mode,
+            attributes=req.attributes,
+            confirm=req.confirm,
+        )
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    except Exception as e:  # noqa: BLE001
+        return Response(str(e), status_code=503)
+    return JSONResponse(report.model_dump(mode="json"))
 
 
 @router.get(

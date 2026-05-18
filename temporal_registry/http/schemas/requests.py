@@ -157,3 +157,11 @@ class WorkflowStartRequest(BaseModel):
 
     input: dict[str, Any] = Field(default_factory=dict)
     workflow_id: str = ""
+
+
+class SearchAttributeReconcileRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["validate", "ensure", "replace"] = "validate"
+    attributes: list[str] = Field(default_factory=list)
+    confirm: bool = False
