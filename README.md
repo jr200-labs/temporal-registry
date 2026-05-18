@@ -127,11 +127,11 @@ Health and visibility endpoints:
 - `/health` returns `ok` when the HTTP API process is alive.
 - `/ready` checks that the API can query the registry workflow through Temporal.
 - `/registry/status` returns registry workflow counts and the latest
-  registry service startup/heartbeat markers.
+  registry service startup marker.
 
-The registry records a startup signal and a low-frequency registry service heartbeat
-signal in the registry workflow history so the Temporal UI has an obvious sign
-that the registry service is active.
+The registry records a startup signal in workflow history. Runtime liveness stays
+on `/health` and `/ready` so the registry workflow history does not grow from
+periodic service heartbeat signals.
 
 ## Search Attribute Administration
 

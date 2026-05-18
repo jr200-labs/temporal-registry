@@ -327,8 +327,6 @@ async def mark_registry_service_started(
     client: Client,
     process_id: str,
     config: RegistryServiceConfig,
-    *,
-    interval_seconds: int = 0,
 ) -> None:
     await ensure_registry_workflow(client, config)
     handle = client.get_workflow_handle(config.registry.workflow_id)
@@ -337,54 +335,8 @@ async def mark_registry_service_started(
         RegistryServiceHeartbeatSignal(
             process_id=process_id,
             event="started",
-            interval_seconds=max(0, interval_seconds),
         ).model_dump(mode="json"),
     )
-
-
-async def heartbeat_registry_service(
-    client: Client,
-    process_id: str,
-    config: RegistryServiceConfig,
-    *,
-    interval_seconds: int = 0,
-    failed_attempts_since_last_success: int = 0,
-) -> None:
-    handle = client.get_workflow_handle(config.registry.workflow_id)
-    await handle.signal(
-        "registry_service_heartbeat",
-        RegistryServiceHeartbeatSignal(
-            process_id=process_id,
-            event="heartbeat",
-            interval_seconds=max(0, interval_seconds),
-            failed_attempts_since_last_success=max(
-                0, failed_attempts_since_last_success
-            ),
-        ).model_dump(mode="json"),
-    )
-
-
-async def registry_service_heartbeat_loop(
-    client: Client,
-    process_id: str,
-    interval_seconds: int,
-    config: RegistryServiceConfig,
-) -> None:
-    failed_attempts = 0
-    while True:
-        try:
-            await heartbeat_registry_service(
-                client,
-                process_id,
-                config,
-                interval_seconds=interval_seconds,
-                failed_attempts_since_last_success=failed_attempts,
-            )
-            failed_attempts = 0
-        except Exception as e:  # noqa: BLE001
-            failed_attempts += 1
-            log.warning("registry service heartbeat failed: %s", e)
-        await asyncio.sleep(max(1, interval_seconds))
 
 
 async def heartbeat_loop(

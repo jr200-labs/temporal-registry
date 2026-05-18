@@ -46,11 +46,7 @@ class WorkerRegistry:
         self._shutdown = False
         self._started_at_epoch = 0.0
         self._last_registry_service_started_epoch = 0.0
-        self._last_registry_service_heartbeat_epoch = 0.0
-        self._registry_service_heartbeat_count = 0
         self._registry_service_process_id = ""
-        self._registry_service_heartbeat_interval_seconds = 0
-        self._registry_service_failed_attempts_since_last_success = 0
 
     @workflow.signal(name="register_worker")
     async def register_worker(
@@ -170,24 +166,15 @@ class WorkerRegistry:
     ) -> None:
         signal = self._registry_service_signal(payload, event="started")
         self._registry_service_process_id = signal.process_id
-        self._registry_service_heartbeat_interval_seconds = signal.interval_seconds
-        self._registry_service_failed_attempts_since_last_success = (
-            signal.failed_attempts_since_last_success
-        )
         self._last_registry_service_started_epoch = self._utc_now().timestamp()
 
     @workflow.signal(name="registry_service_heartbeat")
     async def registry_service_heartbeat(
         self, payload: dict[str, Any] | RegistryServiceHeartbeatSignal
     ) -> None:
-        signal = self._registry_service_signal(payload, event="heartbeat")
-        self._registry_service_process_id = signal.process_id
-        self._registry_service_heartbeat_interval_seconds = signal.interval_seconds
-        self._registry_service_failed_attempts_since_last_success = (
-            signal.failed_attempts_since_last_success
-        )
-        self._last_registry_service_heartbeat_epoch = self._utc_now().timestamp()
-        self._registry_service_heartbeat_count += 1
+        # Legacy handler for workflows that already have heartbeat signals in
+        # history. Runtime no longer emits these high-churn liveness signals.
+        self._registry_service_signal(payload, event="heartbeat")
 
     @workflow.query(name="list_workflows")
     def list_workflows(self) -> list[dict[str, Any]]:
@@ -261,13 +248,7 @@ class WorkerRegistry:
             ),
             started_at_epoch=self._started_at_epoch,
             last_registry_service_started_epoch=self._last_registry_service_started_epoch,
-            last_registry_service_heartbeat_epoch=self._last_registry_service_heartbeat_epoch,
-            registry_service_heartbeat_count=self._registry_service_heartbeat_count,
             registry_service_process_id=self._registry_service_process_id,
-            registry_service_heartbeat_interval_seconds=self._registry_service_heartbeat_interval_seconds,
-            registry_service_failed_attempts_since_last_success=(
-                self._registry_service_failed_attempts_since_last_success
-            ),
         ).model_dump(mode="json")
 
     @workflow.run

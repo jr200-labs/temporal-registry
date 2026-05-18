@@ -90,19 +90,11 @@ def test_registry_put_workflow_can_overwrite_workflow_spec() -> None:
 def test_registry_status_reports_registry_service_state() -> None:
     registry = WorkerRegistry()
     registry._registry_service_process_id = "host:123"
-    registry._registry_service_heartbeat_count = 2
-    registry._registry_service_heartbeat_interval_seconds = 300
-    registry._registry_service_failed_attempts_since_last_success = 3
     registry._last_registry_service_started_epoch = 1.0
-    registry._last_registry_service_heartbeat_epoch = 2.0
 
     status = registry.get_status()
 
     assert status["workflow_count"] == 0
     assert status["worker_count"] == 0
     assert status["registry_service_process_id"] == "host:123"
-    assert status["registry_service_heartbeat_count"] == 2
-    assert status["registry_service_heartbeat_interval_seconds"] == 300
-    assert status["registry_service_failed_attempts_since_last_success"] == 3
     assert status["last_registry_service_started_epoch"] == 1.0
-    assert status["last_registry_service_heartbeat_epoch"] == 2.0

@@ -155,11 +155,7 @@ class RegistryStatus(BaseModel):
     healthy_worker_count: int = 0
     started_at_epoch: float = 0.0
     last_registry_service_started_epoch: float = 0.0
-    last_registry_service_heartbeat_epoch: float = 0.0
-    registry_service_heartbeat_count: int = 0
     registry_service_process_id: str = ""
-    registry_service_heartbeat_interval_seconds: int = 0
-    registry_service_failed_attempts_since_last_success: int = 0
 
 
 class WorkerRegistrationSignal(BaseModel):

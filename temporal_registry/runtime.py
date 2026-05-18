@@ -20,7 +20,6 @@ from .http.app import build_app
 from .logging_config import configure_json_logging
 
 log = logging.getLogger("temporal_registry")
-REGISTRY_SERVICE_HEARTBEAT_SECONDS = 300
 
 
 @asynccontextmanager
@@ -36,7 +35,6 @@ async def registry_lifespan(app: FastAPI):
     from .temporal.registry.client import (
         ensure_registry_workflow,
         mark_registry_service_started,
-        registry_service_heartbeat_loop,
     )
     from .temporal.registry.activities import make_registry_activities
     from .temporal.registry.workflow import WorkerRegistry
@@ -57,15 +55,6 @@ async def registry_lifespan(app: FastAPI):
         app.state.temporal_client,
         process_id,
         config,
-        interval_seconds=REGISTRY_SERVICE_HEARTBEAT_SECONDS,
-    )
-    heartbeat_task = asyncio.create_task(
-        registry_service_heartbeat_loop(
-            app.state.temporal_client,
-            process_id,
-            REGISTRY_SERVICE_HEARTBEAT_SECONDS,
-            config,
-        )
     )
     log.info(
         "registry service bootstrap: temporal=%s ns=%s tls=%s registry_task_queue=%s",
@@ -77,9 +66,6 @@ async def registry_lifespan(app: FastAPI):
     try:
         yield
     finally:
-        heartbeat_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await heartbeat_task
         registry_task.cancel()
         with suppress(asyncio.CancelledError):
             await registry_task
