@@ -7,6 +7,9 @@
 - `temporal.api_key` is optional for local dev but must only be used with TLS-enabled Temporal connections.
 - OTEL dependencies are optional; guard imports so the base package works without the `otel` extra.
 - Wire payloads must stay compatible with registered worker implementations; update affected worker repositories when changing registry signals, run inputs, or search attributes.
+- The registry owns namespace-level Temporal search attribute provisioning for registered workflows. Normal registration may create missing custom attributes, but must never silently replace same-name/different-type attributes.
+- Search attribute type replacement is an explicit admin operation through `POST /registry/temporal/search-attributes` with `mode=replace`, an explicit `attributes` list, and `confirm=true`. Never put replacement behavior in normal worker registration or workflow `PUT` paths.
+- Keep Temporal search attribute admin operations in registry-owned activities/helpers so worker implementations do not need Temporal operator privileges.
 
 ## Terminology
 
@@ -18,4 +21,5 @@
 - The registry workflow is the durable Temporal workflow storing workflow registrations, task queues, schemas, workers, and heartbeat state.
 - The registry worker is the worker process started by `temporal-registry` to execute the registry workflow itself.
 - The API exposes `/health` for process liveness, `/ready` for Temporal/registry workflow readiness, and `/registry/status` for workflow state.
+- The API exposes `/registry/search-attributes` for registry-declared attributes and `/registry/temporal/search-attributes` for actual Temporal namespace attributes plus reconcile operations.
 - Runtime startup sends a `registry_service_started` signal and then low-frequency `registry_service_heartbeat` signals so the Temporal UI shows registry service activity without high-volume history churn.
