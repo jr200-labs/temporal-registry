@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5](https://github.com/jr200-labs/temporal-registry/compare/v0.1.4...v0.1.5) (2026-05-18)
+
+
+### Bug Fixes
+
+* stop registry service heartbeat signals ([#9](https://github.com/jr200-labs/temporal-registry/issues/9)) ([d53bbb9](https://github.com/jr200-labs/temporal-registry/commit/d53bbb98c82866199021de0fb3093e23c2a06bf4))
+
 ## [0.1.4](https://github.com/jr200-labs/temporal-registry/compare/v0.1.3...v0.1.4) (2026-05-18)
 
 
