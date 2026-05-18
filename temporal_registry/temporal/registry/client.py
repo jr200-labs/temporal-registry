@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import Any, Literal, cast
 
+from google.protobuf.duration_pb2 import Duration
 from temporalio.api.enums.v1 import common_pb2
 from temporalio.api.operatorservice.v1.request_response_pb2 import (
     AddSearchAttributesRequest,
     ListSearchAttributesRequest,
     RemoveSearchAttributesRequest,
+)
+from temporalio.api.workflowservice.v1.request_response_pb2 import (
+    DescribeNamespaceRequest,
+    RegisterNamespaceRequest,
 )
 from temporalio.client import Client
 from temporalio.common import WorkflowIDReusePolicy
@@ -54,6 +60,36 @@ TemporalSearchAttributeType = Literal[
 ]
 TemporalSearchAttributeSource = Literal["custom", "system"]
 SearchAttributeReconcileMode = Literal["validate", "ensure", "replace"]
+
+
+async def ensure_namespace(
+    client: Client,
+    namespace: str,
+    *,
+    retention_days: int,
+) -> None:
+    try:
+        await client.workflow_service.describe_namespace(
+            DescribeNamespaceRequest(namespace=namespace)
+        )
+        return
+    except RPCError as e:
+        if e.status != RPCStatusCode.NOT_FOUND:
+            raise
+
+    retention = Duration()
+    retention.FromTimedelta(timedelta(days=retention_days))
+    try:
+        await client.workflow_service.register_namespace(
+            RegisterNamespaceRequest(
+                namespace=namespace,
+                workflow_execution_retention_period=retention,
+            )
+        )
+    except RPCError as e:
+        if e.status == RPCStatusCode.ALREADY_EXISTS:
+            return
+        raise
 
 
 def _search_attribute_type(

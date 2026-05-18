@@ -18,6 +18,7 @@
 - `TEMPORAL_ADDRESS`, `TEMPORAL_NAMESPACE`, `TEMPORAL_TLS`, and `TEMPORAL_API_KEY` configure how the registry process connects to Temporal.
 - `TEMPORAL_REGISTRY_URL` and `TEMPORAL_REGISTRY_TOKEN` are for clients calling the registry HTTP API.
 - `TEMPORAL_REGISTRY_TOKEN` is not the Temporal API key; it maps to the registry HTTP `Authorization: Bearer ...` token.
+- The registry service ensures `TEMPORAL_NAMESPACE` exists at startup before starting the registry workflow. Namespace creation belongs in startup/bootstrap, not worker registration, because the registry workflow itself needs the namespace first.
 - The registry workflow is the durable Temporal workflow storing workflow registrations, task queues, schemas, workers, and worker heartbeat state.
 - The registry worker is the worker process started by `temporal-registry` to execute the registry workflow itself.
 - The API exposes `/health` for process liveness, `/ready` for Temporal/registry workflow readiness, and `/registry/status` for workflow state.

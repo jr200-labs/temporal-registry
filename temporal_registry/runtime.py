@@ -33,11 +33,18 @@ async def registry_lifespan(app: FastAPI):
     address, namespace, tls, _ = _temporal_resolve(config)
     app.state.temporal_client = await _temporal_connect(config)
     from .temporal.registry.client import (
+        ensure_namespace,
         ensure_registry_workflow,
         mark_registry_service_started,
     )
     from .temporal.registry.activities import make_registry_activities
     from .temporal.registry.workflow import WorkerRegistry
+
+    await ensure_namespace(
+        app.state.temporal_client,
+        namespace,
+        retention_days=config.temporal.namespace_retention_days,
+    )
 
     registry_worker = Worker(
         app.state.temporal_client,

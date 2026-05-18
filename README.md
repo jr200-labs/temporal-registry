@@ -95,6 +95,9 @@ Temporal terms:
   "frontend", this is not the browser UI.
 - `TEMPORAL_NAMESPACE` is the Temporal namespace where the registry workflow and
   dispatched workflows run.
+- `TEMPORAL_NAMESPACE` is created by the registry service at startup if it is
+  missing. The default retention is 30 days unless the config's
+  `temporal.namespace_retention_days` is changed.
 - `TEMPORAL_TLS` controls whether the registry connects to Temporal using TLS.
 - `TEMPORAL_API_KEY` authenticates the registry process to Temporal, if your
   Temporal deployment requires API-key auth.
