@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.4](https://github.com/jr200-labs/temporal-registry/compare/v0.1.3...v0.1.4) (2026-05-18)
+
+
+### Features
+
+* add temporal search attribute administration ([839fdcc](https://github.com/jr200-labs/temporal-registry/commit/839fdcc48c86aec6e1eb762bdfbd530d00261ef7))
+* add Temporal search attribute administration ([591e7fe](https://github.com/jr200-labs/temporal-registry/commit/591e7fe5ebdbe1d659053fb04a06beabe4e6f789))
+
 ## [0.1.3](https://github.com/jr200-labs/temporal-registry/compare/v0.1.2...v0.1.3) (2026-05-17)
 
 
