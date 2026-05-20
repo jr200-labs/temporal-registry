@@ -1,6 +1,6 @@
 [project]
 name = "temporal-registry"
-version = "0.1.5"
+version = "0.1.6"
 description = "Temporal-backed workflow registry, scheduler, and HTTP dispatch gateway."
 readme = "README.md"
 requires-python = ">=3.14"
