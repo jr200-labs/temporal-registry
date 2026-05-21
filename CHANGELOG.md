@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.7](https://github.com/jr200-labs/temporal-registry/compare/v0.1.6...v0.1.7) (2026-05-21)
+
+
+### Features
+
+* **slug-counters:** durable per-slug workflow id counters ([#13](https://github.com/jr200-labs/temporal-registry/issues/13)) ([c51d5ab](https://github.com/jr200-labs/temporal-registry/commit/c51d5ab19f4a82e9d87b26f65e56a52a8a289667))
+
 ## [0.1.6](https://github.com/jr200-labs/temporal-registry/compare/v0.1.5...v0.1.6) (2026-05-18)
 
 
