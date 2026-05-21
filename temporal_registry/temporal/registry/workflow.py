@@ -339,9 +339,7 @@ class WorkerRegistry:
 
         slug = slugify(req.name)
         if not slug:
-            raise ValueError(
-                f"reset_slug: name {req.name!r} slugifies to empty string"
-            )
+            raise ValueError(f"reset_slug: name {req.name!r} slugifies to empty string")
 
         prev = self._slug_counters.pop(slug, None)
         return ResetSlugResponse(

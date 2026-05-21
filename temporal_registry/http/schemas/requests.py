@@ -171,8 +171,7 @@ class WorkflowStartRequest(BaseModel):
     def _check_id_xor_name(self) -> WorkflowStartRequest:
         if self.workflow_id and self.name:
             raise ValueError(
-                "set either `workflow_id` (explicit) or `name` (slug-counter), "
-                "not both"
+                "set either `workflow_id` (explicit) or `name` (slug-counter), not both"
             )
         return self
 

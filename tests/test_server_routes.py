@@ -987,9 +987,7 @@ def test_workflow_ids_claim_route_returns_claimed_id() -> None:
 
     routes_slug.claim_slug_id = fake_claim
     try:
-        response = asyncio.run(
-            routes_slug.post_claim(_Request({"name": "tui-build"}))
-        )
+        response = asyncio.run(routes_slug.post_claim(_Request({"name": "tui-build"})))
     finally:
         _Request.client = old_client
         routes_slug.claim_slug_id = old_claim
@@ -1010,9 +1008,7 @@ def test_workflow_ids_reset_route_returns_previous_counter() -> None:
 
     routes_slug.reset_slug = fake_reset
     try:
-        response = asyncio.run(
-            routes_slug.post_reset(_Request({"name": "tui-build"}))
-        )
+        response = asyncio.run(routes_slug.post_reset(_Request({"name": "tui-build"})))
     finally:
         _Request.client = old_client
         routes_slug.reset_slug = old_reset

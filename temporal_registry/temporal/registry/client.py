@@ -437,9 +437,7 @@ async def claim_slug_id(
     at-least-once-but-deduped behaviour should track their own request id."""
     await ensure_registry_workflow(client, config)
     handle = client.get_workflow_handle(config.registry.workflow_id)
-    result = await handle.execute_update(
-        "claim_slug_id", {"name": name}
-    )
+    result = await handle.execute_update("claim_slug_id", {"name": name})
     return ClaimSlugIdResponse.model_validate(result)
 
 
@@ -447,9 +445,7 @@ async def reset_slug(
     client: Client, name: str, config: RegistryServiceConfig
 ) -> ResetSlugResponse:
     handle = client.get_workflow_handle(config.registry.workflow_id)
-    result = await handle.execute_update(
-        "reset_slug", {"name": name}
-    )
+    result = await handle.execute_update("reset_slug", {"name": name})
     return ResetSlugResponse.model_validate(result)
 
 
