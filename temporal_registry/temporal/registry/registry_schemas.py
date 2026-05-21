@@ -190,3 +190,60 @@ class WorkflowTypeSignal(BaseModel):
 
 class WorkflowEnabledSignal(WorkflowTypeSignal):
     enabled: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Slug counter for human-readable workflow IDs.
+#
+# Workflows submitted with an optional `name` get a sequential per-slug
+# counter ("tui-build" → r1, r2, …). The registry workflow holds the counter
+# map in its own durable state, so the values survive worker restarts and
+# concurrent claims are serialised through Temporal.
+# ---------------------------------------------------------------------------
+
+
+class SlugCounter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    counter: int = Field(ge=0)
+    last_claimed_epoch: float = Field(ge=0)
+
+
+class ClaimSlugIdRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # The raw human name. Registry slugifies before lookup; "Tui_Build" and
+    # "tui-build" hit the same counter.
+    name: str = Field(min_length=1, max_length=128)
+
+
+class ClaimSlugIdResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    counter: int
+    workflow_id: str
+
+
+class ResetSlugRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+
+
+class ResetSlugResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    previous_counter: int
+    reset_to: int = 0
+
+
+class SlugCounterSummary(BaseModel):
+    """Returned by the list endpoint for debugging."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    counter: int
+    last_claimed_epoch: float

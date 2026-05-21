@@ -66,6 +66,11 @@ class RunRequest(BaseModel):
     agent_acp_provider: str = ""
     chain: list[ChainStepRequest] = Field(default_factory=list)
     chain_mode: Literal["", "override", "append"] = ""
+    # Optional human name; registry slugifies and claims the next
+    # per-slug counter to build the workflow id. When omitted, the
+    # registry falls back to its historic `run-agent-<agent_id>-<hex>`
+    # generator.
+    name: str = ""
 
     @field_validator("agent_id")
     @classmethod
@@ -157,6 +162,18 @@ class WorkflowStartRequest(BaseModel):
 
     input: dict[str, Any] = Field(default_factory=dict)
     workflow_id: str = ""
+    # Optional human name; mutually exclusive with `workflow_id`. When
+    # set, registry claims the next slug counter and uses
+    # `<slug>-r<N>` as the workflow id.
+    name: str = ""
+
+    @model_validator(mode="after")
+    def _check_id_xor_name(self) -> WorkflowStartRequest:
+        if self.workflow_id and self.name:
+            raise ValueError(
+                "set either `workflow_id` (explicit) or `name` (slug-counter), not both"
+            )
+        return self
 
 
 class SearchAttributeReconcileRequest(BaseModel):

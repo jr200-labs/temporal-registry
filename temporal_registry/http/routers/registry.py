@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from ...temporal.registry.client import (
+    claim_slug_id,
     get_status,
     get_workflow,
     list_search_attributes,
@@ -272,7 +273,8 @@ async def post_workflow_start(request: Request, workflow_type: str) -> Response:
         req = WorkflowStartRequest.model_validate(body)
     except ValidationError as e:
         return JSONResponse(
-            {"error": "invalid request", "details": e.errors()}, status_code=400
+            {"error": "invalid request", "details": e.errors(include_context=False)},
+            status_code=400,
         )
 
     try:
@@ -290,9 +292,16 @@ async def post_workflow_start(request: Request, workflow_type: str) -> Response:
             status_code=400,
         )
 
-    workflow_id = (
-        req.workflow_id or f"{workflow_type.replace('.', '-')}-{os.urandom(4).hex()}"
-    )
+    if req.name:
+        try:
+            claimed = await claim_slug_id(client, req.name, registry_config(request))
+        except Exception as e:  # noqa: BLE001
+            return Response(f"slug claim failed: {e}", status_code=503)
+        workflow_id = claimed.workflow_id
+    elif req.workflow_id:
+        workflow_id = req.workflow_id
+    else:
+        workflow_id = f"{workflow_type.replace('.', '-')}-{os.urandom(4).hex()}"
     try:
         handle = await client.start_workflow(
             workflow_type,

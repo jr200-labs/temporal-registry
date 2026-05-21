@@ -23,6 +23,12 @@ from temporal_registry.temporal.registry.registry_schemas import (
 from temporal_registry.http.routers import registry as routes_registry
 from temporal_registry.http.routers import run as routes_run
 from temporal_registry.http.routers import schedules as routes_schedules
+from temporal_registry.http.routers import slug_counters as routes_slug
+from temporal_registry.temporal.registry.registry_schemas import (
+    ClaimSlugIdResponse,
+    ResetSlugResponse,
+    SlugCounterSummary,
+)
 
 
 def _config() -> RegistryServiceConfig:
@@ -901,3 +907,141 @@ def test_post_schedule_rejects_unknown_search_attribute() -> None:
     assert json.loads(response.body) == {
         "error": "unsupported search attribute for slack.poll.v1: unsupported; supported: agent_acp_provider, agent_event_types, agent_id, tools_used"
     }
+
+
+# ---------- slug counter routes -------------------------------------------
+
+
+def test_post_run_with_name_claims_slug_and_uses_it() -> None:
+    """When the run request carries `name`, the route must claim a
+    slug counter via the registry workflow and use the returned
+    `workflow_id` instead of the random hex fallback."""
+    old_client = _Request.client
+    client = _Client()
+    _Request.client = client
+    old_resolve = routes_run.resolve_workflow
+    old_claim = routes_run.claim_slug_id
+
+    async def fake_resolve(_client, _workflow_type, _config):
+        return _Target()
+
+    async def fake_claim(_client, name: str, _config):
+        return ClaimSlugIdResponse(slug=name, counter=7, workflow_id=f"{name}-r7")
+
+    routes_run.resolve_workflow = fake_resolve
+    routes_run.claim_slug_id = fake_claim
+    try:
+        response = asyncio.run(
+            routes_run.post_run(
+                _Request(
+                    {
+                        "agent_id": "hello-world",
+                        "workspace": "/tmp/work",
+                        "prompt": "x",
+                        "name": "smoke",
+                    }
+                )
+            )
+        )
+    finally:
+        _Request.client = old_client
+        routes_run.resolve_workflow = old_resolve
+        routes_run.claim_slug_id = old_claim
+
+    assert response.status_code == 200
+    assert client.started["id"] == "smoke-r7"
+    # `name` must NOT be passed through to the workflow input.
+    assert "name" not in client.started["payload"]
+
+
+def test_post_workflow_start_rejects_both_workflow_id_and_name() -> None:
+    """The model validator on WorkflowStartRequest rejects requests
+    that try to set both fields; the route returns 400 with the
+    pydantic-formatted error rather than crashing."""
+    response = asyncio.run(
+        routes_registry.post_workflow_start(
+            _Request(
+                {
+                    "input": {},
+                    "workflow_id": "explicit-id",
+                    "name": "claimed",
+                },
+                {"workflow_type": "agent.run.v1"},
+            ),
+            "agent.run.v1",
+        )
+    )
+    assert response.status_code == 400
+    body = json.loads(response.body)
+    assert body["error"] == "invalid request"
+
+
+def test_workflow_ids_claim_route_returns_claimed_id() -> None:
+    old_client = _Request.client
+    client = _Client()
+    _Request.client = client
+    old_claim = routes_slug.claim_slug_id
+
+    async def fake_claim(_client, name: str, _config):
+        return ClaimSlugIdResponse(slug=name, counter=42, workflow_id=f"{name}-r42")
+
+    routes_slug.claim_slug_id = fake_claim
+    try:
+        response = asyncio.run(routes_slug.post_claim(_Request({"name": "tui-build"})))
+    finally:
+        _Request.client = old_client
+        routes_slug.claim_slug_id = old_claim
+
+    assert response.status_code == 200
+    body = json.loads(response.body)
+    assert body == {"slug": "tui-build", "counter": 42, "workflow_id": "tui-build-r42"}
+
+
+def test_workflow_ids_reset_route_returns_previous_counter() -> None:
+    old_client = _Request.client
+    client = _Client()
+    _Request.client = client
+    old_reset = routes_slug.reset_slug
+
+    async def fake_reset(_client, name: str, _config):
+        return ResetSlugResponse(slug=name, previous_counter=9, reset_to=0)
+
+    routes_slug.reset_slug = fake_reset
+    try:
+        response = asyncio.run(routes_slug.post_reset(_Request({"name": "tui-build"})))
+    finally:
+        _Request.client = old_client
+        routes_slug.reset_slug = old_reset
+
+    assert response.status_code == 200
+    body = json.loads(response.body)
+    assert body == {"slug": "tui-build", "previous_counter": 9, "reset_to": 0}
+
+
+def test_workflow_ids_list_route_returns_sorted_counters() -> None:
+    old_client = _Request.client
+    client = _Client()
+    _Request.client = client
+    old_list = routes_slug.list_slug_counters
+
+    async def fake_list(_client, _config):
+        return [
+            SlugCounterSummary(slug="alpha", counter=3, last_claimed_epoch=1.0),
+            SlugCounterSummary(slug="beta", counter=1, last_claimed_epoch=2.0),
+        ]
+
+    routes_slug.list_slug_counters = fake_list
+    try:
+        response = asyncio.run(routes_slug.get_list(_Request({})))
+    finally:
+        _Request.client = old_client
+        routes_slug.list_slug_counters = old_list
+
+    assert response.status_code == 200
+    body = json.loads(response.body)
+    assert [c["slug"] for c in body["slug_counters"]] == ["alpha", "beta"]
+
+
+def test_workflow_ids_claim_route_rejects_empty_name() -> None:
+    response = asyncio.run(routes_slug.post_claim(_Request({"name": ""})))
+    assert response.status_code == 400

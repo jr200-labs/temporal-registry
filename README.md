@@ -136,6 +136,76 @@ The registry records a startup signal in workflow history. Runtime liveness stay
 on `/health` and `/ready` so the registry workflow history does not grow from
 periodic service heartbeat signals.
 
+## Human-readable workflow IDs (slug counters)
+
+By default the registry generates workflow IDs that include random hex
+suffixes (`run-agent-hello-world-eb3bd463`). That keeps submissions
+collision-free but the IDs are hard to scan, share, or group in the
+Temporal UI.
+
+The registry maintains a durable per-slug counter so callers can opt
+in to predictable IDs:
+
+```bash
+# Submit a run with a human name. The registry slugifies the name,
+# claims the next counter, and uses `<slug>-r<N>` as the workflow id.
+curl -X POST "$TEMPORAL_REGISTRY_URL/run" \
+  -H 'content-type: application/json' \
+  -d '{
+    "agent_id":  "hello-world",
+    "workspace": "/tmp/work",
+    "prompt":    "say hi",
+    "name":      "tui-build"
+  }'
+# -> {"workflow_id": "tui-build-r1", ...}
+
+# Same for graph workflows via the generic start endpoint.
+curl -X POST "$TEMPORAL_REGISTRY_URL/workflows/agent.graph.run.v1/start" \
+  -H 'content-type: application/json' \
+  -d '{"input": {...}, "name": "tui-build"}'
+# -> {"workflow_id": "tui-build-r2", ...}
+```
+
+Direct admin endpoints:
+
+```bash
+# Claim a counter without starting a workflow (useful for client-side
+# id construction before submitting).
+curl -X POST "$TEMPORAL_REGISTRY_URL/workflow-ids/claim" \
+  -H 'content-type: application/json' \
+  -d '{"name": "tui-build"}'
+# -> {"slug": "tui-build", "counter": 3, "workflow_id": "tui-build-r3"}
+
+# Reset a slug back to 0 (next claim returns r1).
+curl -X POST "$TEMPORAL_REGISTRY_URL/workflow-ids/reset" \
+  -H 'content-type: application/json' \
+  -d '{"name": "tui-build"}'
+
+# Inspect all current counters.
+curl "$TEMPORAL_REGISTRY_URL/workflow-ids"
+```
+
+**Durability.** Counters live in the registry's own Temporal workflow
+state (the singleton `workflow-registry`). Each claim is a Temporal
+Workflow Update, serialised on the workflow and persisted to the same
+Postgres backing store that holds the rest of Temporal's workflow
+history. Multiple registry HTTP replicas are safe — they all signal
+the same workflow. Worker / pod restarts preserve the state. The only
+clobber risk is running two registries with the same `workflow_id`
+against the same namespace, which is a deployment misconfiguration.
+
+**Retention.** Counter entries are time-bounded (`SLUG_DEFAULT_TTL_SECONDS`,
+30 days) and size-bounded (`SLUG_DEFAULT_MAX_ENTRIES`, 10 000 slugs).
+The periodic GC sweep drops entries older than the TTL, then evicts
+the LRU-oldest if the map still exceeds the cap. Both bounds keep the
+workflow's history from growing unboundedly when callers spam unique
+slugs.
+
+**Slug normalisation.** Names are lowercased and any non-`[a-z0-9-]`
+run is collapsed to `-` (`Tui_Build`, `tui build!`, `TUI-Build` all
+hit the same counter). Leading/trailing dashes are stripped. A name
+that slugifies to empty (e.g. `@@@`) is rejected with HTTP 400.
+
 ## Search Attribute Administration
 
 Registered workers declare the custom search attributes their workflows use. The

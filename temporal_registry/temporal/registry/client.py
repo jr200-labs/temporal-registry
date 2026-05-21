@@ -25,14 +25,17 @@ from temporalio.service import RPCError, RPCStatusCode
 
 from ...config_schemas import RegistryServiceConfig
 from .registry_schemas import (
+    ClaimSlugIdResponse,
     RegistryStatus,
     RegistryServiceHeartbeatSignal,
     RegistryWorkflowInfo,
     RegistryWorkflowSpec,
+    ResetSlugResponse,
     ResolvedWorkflowTarget,
     SearchAttributeReconcileReport,
     SearchAttributeSpec,
     SearchAttributeSummary,
+    SlugCounterSummary,
     TemporalSearchAttribute,
     WorkerIdSignal,
     WorkflowSpecSignal,
@@ -422,3 +425,33 @@ async def resolve_workflow(
     handle = client.get_workflow_handle(config.registry.workflow_id)
     result = await handle.query("resolve_workflow", workflow_type)
     return ResolvedWorkflowTarget.model_validate(result) if result else None
+
+
+async def claim_slug_id(
+    client: Client, name: str, config: RegistryServiceConfig
+) -> ClaimSlugIdResponse:
+    """Reserve the next per-slug counter via the registry workflow's
+    `claim_slug_id` Workflow Update. Durable, serialised, idempotent
+    per-attempt: a duplicate HTTP retry that lands a fresh update on
+    Temporal will produce a fresh counter — clients that want
+    at-least-once-but-deduped behaviour should track their own request id."""
+    await ensure_registry_workflow(client, config)
+    handle = client.get_workflow_handle(config.registry.workflow_id)
+    result = await handle.execute_update("claim_slug_id", {"name": name})
+    return ClaimSlugIdResponse.model_validate(result)
+
+
+async def reset_slug(
+    client: Client, name: str, config: RegistryServiceConfig
+) -> ResetSlugResponse:
+    handle = client.get_workflow_handle(config.registry.workflow_id)
+    result = await handle.execute_update("reset_slug", {"name": name})
+    return ResetSlugResponse.model_validate(result)
+
+
+async def list_slug_counters(
+    client: Client, config: RegistryServiceConfig
+) -> list[SlugCounterSummary]:
+    handle = client.get_workflow_handle(config.registry.workflow_id)
+    result = await handle.query("list_slug_counters")
+    return [SlugCounterSummary.model_validate(item) for item in list(result or [])]

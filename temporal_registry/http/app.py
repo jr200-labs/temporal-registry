@@ -14,7 +14,7 @@ from .observability import (
     configure_otel,
     metrics_endpoint,
 )
-from .routers import health, registry, run, schedules
+from .routers import health, registry, run, schedules, slug_counters
 from .schemas.responses import install_openapi_schema
 
 log = logging.getLogger("temporal_registry.http")
@@ -47,6 +47,7 @@ def build_app(
     app.include_router(registry.router)
     app.include_router(registry.workflow_router)
     app.include_router(schedules.router)
+    app.include_router(slug_counters.router)
     if metrics_enabled:
         app.add_api_route(
             metrics_path, metrics_endpoint, methods=["GET"], include_in_schema=False
