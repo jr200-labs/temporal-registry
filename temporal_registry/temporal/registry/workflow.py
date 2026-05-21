@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
@@ -14,15 +15,21 @@ from temporalio.common import RawValue, RetryPolicy
 from .activity_types import ACTIVITY_ENSURE_SEARCH_ATTRIBUTES
 
 from .registry_schemas import (
+    ClaimSlugIdRequest,
+    ClaimSlugIdResponse,
     RegistryWorker,
     RegistryWorkerInfo,
     RegistryWorkflowInfo,
     RegistryWorkflowSpec,
     RegistryServiceHeartbeatSignal,
     RegistryStatus,
+    ResetSlugRequest,
+    ResetSlugResponse,
     ResolvedWorkflowTarget,
     SearchAttributeSpec,
     SearchAttributeSummary,
+    SlugCounter,
+    SlugCounterSummary,
     WorkerIdSignal,
     WorkerRegistrationSignal,
     WorkflowEnabledSignal,
@@ -38,11 +45,34 @@ SEARCH_ATTRIBUTE_PROVISIONING_PATCH = "search-attribute-provisioning-v1"
 log = logging.getLogger("temporal_registry.temporal.registry.workflow")
 
 
+# Slug counter retention. Entries older than the TTL are dropped on each GC
+# sweep; the map is also capped by entry count (oldest first when exceeded)
+# so a slug-spamming caller can't bloat workflow history indefinitely. The
+# values here are defaults; runtime overrides come in via the workflow's
+# input args (RegistryConfig.slug_*).
+SLUG_DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
+SLUG_DEFAULT_MAX_ENTRIES = 10_000
+_SLUG_SAFE = re.compile(r"[^a-z0-9-]+")
+
+
+def slugify(name: str) -> str:
+    """Normalise a human name into a workflow-id-safe slug.
+
+    Lowercases, replaces any run of non `[a-z0-9-]` with `-`, strips leading/
+    trailing dashes. Caller is expected to pre-validate non-emptiness.
+    """
+    s = _SLUG_SAFE.sub("-", name.strip().lower())
+    return s.strip("-")
+
+
 @workflow.defn(name="temporal-registry.v1", dynamic=True)  # type: ignore[call-overload]
 class WorkerRegistry:
     def __init__(self) -> None:
         self._workflows: dict[str, RegistryWorkflowSpec] = {}
         self._workers: dict[str, RegistryWorker] = {}
+        self._slug_counters: dict[str, SlugCounter] = {}
+        self._slug_ttl_seconds: int = SLUG_DEFAULT_TTL_SECONDS
+        self._slug_max_entries: int = SLUG_DEFAULT_MAX_ENTRIES
         self._shutdown = False
         self._started_at_epoch = 0.0
         self._last_registry_service_started_epoch = 0.0
@@ -251,6 +281,94 @@ class WorkerRegistry:
             registry_service_process_id=self._registry_service_process_id,
         ).model_dump(mode="json")
 
+    @workflow.update(name="claim_slug_id")
+    async def claim_slug_id(
+        self, payload: dict[str, Any] | ClaimSlugIdRequest
+    ) -> ClaimSlugIdResponse:
+        """Reserve the next per-slug counter and return the workflow id
+        to use.
+
+        Workflow Updates serialise per workflow, so concurrent claims for
+        the same slug get monotonic counters with no race. Slug
+        normalisation (lower-case, ASCII, `-` separators) happens here so
+        callers that disagree on casing still hit the same counter.
+        """
+        try:
+            req = TypeAdapter(ClaimSlugIdRequest).validate_python(payload)
+        except ValidationError as e:
+            raise ValueError(f"claim_slug_id rejected invalid payload: {e}") from e
+
+        slug = slugify(req.name)
+        if not slug:
+            raise ValueError(
+                f"claim_slug_id: name {req.name!r} slugifies to empty string"
+            )
+
+        now = self._utc_now().timestamp()
+        entry = self._slug_counters.get(slug)
+        next_counter = (entry.counter if entry else 0) + 1
+        self._slug_counters[slug] = SlugCounter(
+            counter=next_counter,
+            last_claimed_epoch=now,
+        )
+        # Opportunistic eviction so a long-running registry can't grow
+        # the map without bound. Cheap because the workflow's tiny RAM
+        # cost makes O(n) iteration fine until n gets huge.
+        self._gc_slug_counters(now)
+
+        return ClaimSlugIdResponse(
+            slug=slug,
+            counter=next_counter,
+            workflow_id=f"{slug}-r{next_counter}",
+        )
+
+    @workflow.update(name="reset_slug")
+    async def reset_slug(
+        self, payload: dict[str, Any] | ResetSlugRequest
+    ) -> ResetSlugResponse:
+        """Drop a slug's counter so the next claim returns r1 again.
+
+        Operator-only operation — there's no production workflow that
+        needs to call this, but it's exposed via HTTP so a human can
+        reset a stuck or test slug.
+        """
+        try:
+            req = TypeAdapter(ResetSlugRequest).validate_python(payload)
+        except ValidationError as e:
+            raise ValueError(f"reset_slug rejected invalid payload: {e}") from e
+
+        slug = slugify(req.name)
+        if not slug:
+            raise ValueError(
+                f"reset_slug: name {req.name!r} slugifies to empty string"
+            )
+
+        prev = self._slug_counters.pop(slug, None)
+        return ResetSlugResponse(
+            slug=slug,
+            previous_counter=prev.counter if prev else 0,
+            reset_to=0,
+        )
+
+    @workflow.query(name="list_slug_counters")
+    def list_slug_counters(self) -> list[dict[str, Any]]:
+        """Return the current slug counter map sorted by slug.
+
+        Useful for debugging / admin UI. Not authoritative for routing
+        (claim_slug_id is the only correct way to *use* a counter).
+        """
+        out: list[SlugCounterSummary] = []
+        for slug, entry in self._slug_counters.items():
+            out.append(
+                SlugCounterSummary(
+                    slug=slug,
+                    counter=entry.counter,
+                    last_claimed_epoch=entry.last_claimed_epoch,
+                )
+            )
+        out.sort(key=lambda s: s.slug)
+        return [s.model_dump(mode="json") for s in out]
+
     @workflow.run
     async def run(self, _args: Sequence[RawValue]) -> None:
         self._started_at_epoch = self._utc_now().timestamp()
@@ -265,6 +383,7 @@ class WorkerRegistry:
             except TimeoutError:
                 pass
             self._gc_stale_workers()
+            self._gc_slug_counters(self._utc_now().timestamp())
 
     def _gc_stale_workers(self) -> None:
         now = self._utc_now().timestamp()
@@ -276,6 +395,52 @@ class WorkerRegistry:
         for worker_id in stale:
             workflow.logger.info("gc removing stale worker %s", worker_id)
             self._workers.pop(worker_id, None)
+
+    def _gc_slug_counters(self, now_epoch: float) -> None:
+        """Drop slug counter entries past TTL, then trim oldest if the
+        map still exceeds the entry cap. Both bounds defend against the
+        workflow's serialised state (and therefore its history events)
+        growing without limit."""
+        if not self._slug_counters:
+            return
+        ttl = self._slug_ttl_seconds
+        expired: list[str] = []
+        if ttl > 0:
+            for slug, entry in self._slug_counters.items():
+                age = now_epoch - entry.last_claimed_epoch
+                if age > ttl:
+                    expired.append(slug)
+        for slug in expired:
+            self._gc_log("gc removing expired slug counter %s (age > %ss)", slug, ttl)
+            self._slug_counters.pop(slug, None)
+
+        if (
+            self._slug_max_entries > 0
+            and len(self._slug_counters) > self._slug_max_entries
+        ):
+            # Sort by last-claimed ascending so the oldest go first.
+            ordered = sorted(
+                self._slug_counters.items(),
+                key=lambda kv: kv[1].last_claimed_epoch,
+            )
+            drop = len(self._slug_counters) - self._slug_max_entries
+            for slug, _ in ordered[:drop]:
+                self._gc_log(
+                    "gc evicting LRU slug counter %s (map size cap %s)",
+                    slug,
+                    self._slug_max_entries,
+                )
+                self._slug_counters.pop(slug, None)
+
+    def _gc_log(self, message: str, *args: Any) -> None:
+        """Workflow-runtime-tolerant logger. workflow.logger.* only works
+        inside the workflow event loop; unit tests call helpers
+        directly, so we fall back to module-level logging when there's
+        no event loop. Same pattern as `_register_workflow_spec`."""
+        try:
+            workflow.logger.info(message, *args)
+        except Exception:  # noqa: BLE001 - unit-test path; logging must not raise
+            log.info(message, *args)
 
     def _registry_service_signal(
         self,

@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from temporalio import common as tcommon
 
-from ...temporal.registry.client import resolve_workflow
+from ...temporal.registry.client import claim_slug_id, resolve_workflow
 from ..dependencies import registry_config, temporal_client
 from ..schemas.requests import RunRequest
 from ..schemas.responses import RunStartResponse, error_responses, request_body
@@ -56,18 +56,30 @@ async def post_run(request: Request) -> Response:
         )
     sa = tcommon.TypedSearchAttributes(pairs)
 
-    inp = req.model_dump(mode="json", exclude={"workflow_type"})
+    # Exclude both workflow_type (request-only field) and name (consumed
+    # here, not passed through to the workflow input).
+    inp = req.model_dump(mode="json", exclude={"workflow_type", "name"})
     validation_errors = validate_schema(inp, target.input_schema)
     if validation_errors:
         return JSONResponse(
             {"error": "invalid workflow input", "details": validation_errors},
             status_code=400,
         )
+
+    if req.name:
+        try:
+            claimed = await claim_slug_id(client, req.name, config)
+        except Exception as e:  # noqa: BLE001
+            return Response(f"slug claim failed: {e}", status_code=503)
+        workflow_id = claimed.workflow_id
+    else:
+        workflow_id = f"run-agent-{req.agent_id}-{os.urandom(4).hex()}"
+
     try:
         handle = await client.start_workflow(
             req.workflow_type,
             inp,
-            id=f"run-agent-{req.agent_id}-{os.urandom(4).hex()}",
+            id=workflow_id,
             task_queue=target.task_queue,
             search_attributes=sa,
         )
